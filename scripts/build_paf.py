@@ -1,5 +1,5 @@
 """Headless official PortableApps Installer build. No NSIS fallback is mislabeled official."""
-import hashlib,json,os,pathlib,re,shutil,subprocess,time,urllib.request
+import configparser,hashlib,json,os,pathlib,re,shutil,subprocess,time,urllib.request,sys
 
 VERSION='3.9.22'
 # Reconfirmed from public, successful FreeCrawl r7 builder's SourceForge release verification.
@@ -17,7 +17,29 @@ if not pathlib.Path(seven).is_file() and not shutil.which('7z'):
     raise RuntimeError('Cannot locate 7z.exe on GitHub Windows runner')
 
 def run(argv,timeout,cwd=None):
-    print('RUN:',[str(v) for v in argv]);return subprocess.run([str(v) for v in argv],check=True,timeout=timeout,cwd=cwd,text=True,capture_output=True)
+    print('RUN:',[str(v) for v in argv],flush=True)
+    proc=subprocess.Popen([str(v) for v in argv],cwd=cwd,text=True,
+                          stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    try:
+        out,err=proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Kill only the specific tool's process tree, not unrelated Windows applications.
+        # This prevents a stalled GUI packager/child compressor from consuming CI minutes.
+        if os.name=='nt':
+            try:
+                subprocess.run(['taskkill.exe','/PID',str(proc.pid),'/T','/F'],
+                               capture_output=True,text=True,timeout=20,check=False)
+            except (OSError,subprocess.SubprocessError):pass
+        if proc.poll() is None:proc.kill()
+        try:proc.communicate(timeout=15)
+        except subprocess.SubprocessError:pass
+        raise subprocess.TimeoutExpired([str(v) for v in argv],timeout)
+    result=subprocess.CompletedProcess([str(v) for v in argv],proc.returncode,out,err)
+    if proc.returncode:
+        print('FAILED TOOL STDOUT:',out[-2500:],flush=True)
+        print('FAILED TOOL STDERR:',err[-2500:],flush=True)
+        raise subprocess.CalledProcessError(proc.returncode,[str(v) for v in argv],out,err)
+    return result
 
 urls=[f'https://{mirror}/project/portableapps/PortableApps.com%20Installer/{NAME}' for mirror in ['netix.dl.sourceforge.net','cfhcable.dl.sourceforge.net','pilotfiber.dl.sourceforge.net','gigenet.dl.sourceforge.net','downloads.sourceforge.net']]
 valid=False
@@ -46,17 +68,27 @@ programs=list(extract.rglob('PortableApps.comInstaller.exe'))
 if len(programs)!=1:raise RuntimeError('Expected one extracted official PortableApps.comInstaller.exe; found '+str([str(x) for x in programs]))
 builder=programs[0]
 if builder.stat().st_size<10_000 or builder.open('rb').read(2)!=b'MZ':raise RuntimeError('Invalid extracted vendor compiler')
+# Fail immediately on metadata gaps that can cause an interactive vendor prompt.
+config=configparser.ConfigParser(interpolation=None)
+config.read(stage/'App/AppInfo/appinfo.ini',encoding='utf-8')
+for section,keys in {'Details':['Name','AppID','Publisher','Homepage','Category','Description','Language'],
+                     'Version':['PackageVersion','DisplayVersion'],'Control':['Start','Icons']}.items():
+    for key in keys:
+        if not config.has_option(section,key) or not config.get(section,key).strip():
+            raise RuntimeError(f'Missing official-tool appinfo.ini metadata: [{section}] {key}')
 started=time.time()-2
+compiler_problem=None
 try:
-    result=run([builder,stage],480,cwd=builder.parent)
+    result=run([builder,stage],210,cwd=builder.parent)
     print('Official compiler stdout:',result.stdout[-4000:])
     print('Official compiler stderr:',result.stderr[-3000:])
 except (subprocess.SubprocessError,OSError) as exc:
-    print('Official compiler failed; no mislabeled NSIS fallback:',repr(exc))
+    compiler_problem=repr(exc)
+    print('Official compiler did not finish; checking for a genuinely completed archive:',compiler_problem,flush=True)
     for log in (stage/'App/AppInfo').glob('*installer*log*'):
         print('OFFICIAL LOG:',log.read_text(errors='replace')[-5000:])
-    raise
 # Search only scoped directories created or used by the packager.
+# A successful, fully verified archive can exist even when a vendor GUI remains open.
 roots=[stage.parent,dist,builder.parent,pathlib.Path.cwd(),pathlib.Path.cwd().parent]
 found={}
 for root in roots:
@@ -67,6 +99,7 @@ valid=[]
 for p in found.values():
     try:
         if p.stat().st_size<150_000:continue
+        run([seven,'t',p],120)
         with p.open('rb') as f:
             if f.read(2)!=b'MZ':continue
         out=run([seven,'l','-slt',p],90).stdout.lower().replace('\\','/')
@@ -75,7 +108,8 @@ for p in found.values():
         valid.append(p)
     except (subprocess.SubprocessError,RuntimeError) as ex:print('Rejected candidate:',p,str(ex)[:200])
 if len(valid)!=1:
-    raise RuntimeError('Expected exactly one new official-tool PAF with Thunderbird launcher and executable; candidates: '+str(list(map(str,found.values()))))
+    print('Official PAF not produced/verified. Candidates:',list(map(str,found.values())),'Compiler:',compiler_problem,flush=True)
+    sys.exit(2)
 output=dist/TARGETS['paf']
 if output.exists():output.unlink()
 shutil.copy2(valid[0],output)

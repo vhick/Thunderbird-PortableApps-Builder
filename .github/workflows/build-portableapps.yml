@@ -1,4 +1,4 @@
-name: Build Thunderbird Community Portable (ZIP + official PAF)
+name: Build Thunderbird Community Portable (official PAF, independent fallback, ZIP)
 
 on:
   workflow_dispatch:
@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: latest
+      allow_independent_nsis_fallback:
+        description: 'If official PAF stalls, make a separately LABELED independent NSIS PAF-style installer (not official or certified)'
+        required: true
+        type: boolean
+        default: true
       public_redistribution_ack:
         description: 'PUBLIC repositories only: I confirm I reviewed Thunderbird trademark/redistribution terms and accept responsibility'
         required: true
@@ -25,7 +30,7 @@ jobs:
   package:
     name: Verify, package, validate, and release
     runs-on: windows-2022
-    timeout-minutes: 55
+    timeout-minutes: 50
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHONUTF8: '1'
@@ -102,42 +107,93 @@ jobs:
           python scripts/validate.py
           if ($LASTEXITCODE -ne 0) { throw 'Portable ZIP verification failed. Publishing is blocked.' }
 
-      - name: Generate and independently verify official-tool PAF (no GUI)
+      - name: Generate official-tool PAF, diagnose bounded failures, and optionally build independent NSIS
         id: paf
         if: steps.existing.outputs.skip != 'true'
         shell: pwsh
+        env:
+          ALLOW_INDEPENDENT_NSIS: ${{ inputs.allow_independent_nsis_fallback }}
         run: |
+          # An error in the optional official PAF build must never prevent the verified ZIP release.
+          # Keep the engine provenance explicit: official, independent, or ziponly.
+          $engine = 'ziponly'
+          $PSNativeCommandUseErrorActionPreference = $false
           python scripts/build_paf.py
-          $compiled = $LASTEXITCODE -eq 0
-          if ($compiled) {
+          $officialExit = $LASTEXITCODE
+          if ($officialExit -eq 0) {
             python scripts/validate.py --paf
-            $compiled = $LASTEXITCODE -eq 0
-          }
-          if ($compiled) {
-            'ok=true' >> $env:GITHUB_OUTPUT
-            'PASS: Genuine official-tool PAF statically verified. Not GUI-install tested.' >> $env:GITHUB_STEP_SUMMARY
+            if ($LASTEXITCODE -eq 0) { $engine = 'official' }
+            else { Write-Warning 'The official PAF payload did not match the staged application.' }
           } else {
-            'ok=false' >> $env:GITHUB_OUTPUT
-            $targets = Get-Content 'work/targets.json' -Raw | ConvertFrom-Json
-            $pafPath = Join-Path 'dist' $targets.paf
-            if (Test-Path -LiteralPath $pafPath) { Remove-Item -LiteralPath $pafPath -Force }
-            'WARNING: Official PAF compilation or archive inspection failed; publishing the independently VERIFIED PortableApps ZIP ONLY with a -ziponly release tag. No fake PAF is published.' >> $env:GITHUB_STEP_SUMMARY
-            Write-Warning 'Official PAF unavailable or unverifiable; verified EXE-based ZIP is retained.'
+            Write-Warning "Official vendor compiler unavailable/blocked (exit $officialExit)."
           }
+          if ($engine -ne 'official') {
+            $targets = Get-Content 'work/targets.json' -Raw | ConvertFrom-Json
+            $officialPath = Join-Path 'dist' $targets.paf
+            if (Test-Path -LiteralPath $officialPath) { Remove-Item -LiteralPath $officialPath -Force }
+            if ($env:ALLOW_INDEPENDENT_NSIS -eq 'true') {
+              Write-Host 'Attempting explicitly requested INDEPENDENT NSIS fallback, never labeled official.'
+              python scripts/build_independent_nsis.py
+              if ($LASTEXITCODE -eq 0) {
+                python scripts/validate.py --paf --independent
+                if ($LASTEXITCODE -eq 0) { $engine = 'independent' }
+              }
+              if ($engine -ne 'independent') {
+                Write-Warning 'Independent installer missing or invalid. ZIP-only fallback will publish.'
+                $independentPath = Join-Path 'dist' $targets.paf_independent
+                if (Test-Path -LiteralPath $independentPath) { Remove-Item -LiteralPath $independentPath -Force }
+              }
+            }
+          }
+          Write-Host "Final packaging engine: $engine"
+          "engine=$engine" >> $env:GITHUB_OUTPUT
+          if ($engine -eq 'official') {
+            'PASS: Official PortableApps.com Installer produced a statically verified PAF. Interactive install remains untested.' >> $env:GITHUB_STEP_SUMMARY
+          } elseif ($engine -eq 'independent') {
+            'FALLBACK: Independent NSIS PAF-style installer (NOT official PortableApps.com Installer), plus verified ZIP. Manual PAF install/upgrade not tested.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'FALLBACK: Only the verified EXE-based PortableApps ZIP will publish. No PAF was verified.' >> $env:GITHUB_STEP_SUMMARY
+          }
+          exit 0
 
-      - name: Check pre-existing ZIP-only fallback tag
-        id: fallback_existing
-        if: steps.existing.outputs.skip != 'true' && steps.paf.outputs.ok != 'true'
+      - name: Choose release files and immutable tag for actual installer engine
+        id: selection
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
-        run: python scripts/check_existing.py --mode ziponly
+        env:
+          ENGINE: ${{ steps.paf.outputs.engine }}
+          BASE_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          if ($env:ENGINE -eq 'official') {
+            $mode = 'full'; $tag = $env:BASE_TAG; $files = 'dist/*.zip;dist/*.paf.exe'
+          } elseif ($env:ENGINE -eq 'independent') {
+            $mode = 'independent'; $tag = "$($env:BASE_TAG)-independent-nsis"; $files = 'dist/*.zip;dist/*_IndependentNSIS.paf.exe'
+          } else {
+            $mode = 'ziponly'; $tag = "$($env:BASE_TAG)-ziponly"; $files = 'dist/*.zip'
+          }
+          "mode=$mode" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "files=$files" >> $env:GITHUB_OUTPUT
+          Write-Host "Selected release mode=$mode tag=$tag files=$files"
+
+      - name: Protect existing release tag for chosen fallback
+        id: fallback_existing
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        env:
+          RELEASE_MODE: ${{ steps.selection.outputs.mode }}
+        run: |
+          python scripts/check_existing.py --mode "$env:RELEASE_MODE"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          exit 0
 
       - name: Dry-run Universal Portable Release Publisher v1.1.1
         if: steps.existing.outputs.skip != 'true' && steps.fallback_existing.outputs.skip != 'true'
         uses: vhick/portable-release-publisher@v1.1.1
         with:
-          files: ${{ steps.paf.outputs.ok == 'true' && 'dist/*.zip;dist/*.paf.exe' || 'dist/*.zip' }}
-          tag: ${{ steps.paf.outputs.ok == 'true' && steps.source.outputs.tag || format('{0}-ziponly', steps.source.outputs.tag) }}
-          release-title: Thunderbird Community Portable ${{ steps.source.outputs.tag }}
+          files: ${{ steps.selection.outputs.files }}
+          tag: ${{ steps.selection.outputs.tag }}
+          release-title: Thunderbird Community Portable ${{ steps.selection.outputs.tag }}
           tag-prefix: portable-
           keep-releases: '3'
           prune: 'false'
@@ -147,9 +203,9 @@ jobs:
         if: steps.existing.outputs.skip != 'true' && steps.fallback_existing.outputs.skip != 'true'
         uses: vhick/portable-release-publisher@v1.1.1
         with:
-          files: ${{ steps.paf.outputs.ok == 'true' && 'dist/*.zip;dist/*.paf.exe' || 'dist/*.zip' }}
-          tag: ${{ steps.paf.outputs.ok == 'true' && steps.source.outputs.tag || format('{0}-ziponly', steps.source.outputs.tag) }}
-          release-title: Thunderbird Community Portable ${{ steps.source.outputs.tag }}
+          files: ${{ steps.selection.outputs.files }}
+          tag: ${{ steps.selection.outputs.tag }}
+          release-title: Thunderbird Community Portable ${{ steps.selection.outputs.tag }}
           tag-prefix: portable-
           keep-releases: '3'
           prune: 'false'
@@ -158,9 +214,10 @@ jobs:
       - name: Confirm actual GitHub Release assets
         if: steps.existing.outputs.skip != 'true' && steps.fallback_existing.outputs.skip != 'true'
         shell: pwsh
+        env:
+          RELEASE_MODE: ${{ steps.selection.outputs.mode }}
         run: |
-          if ('${{ steps.paf.outputs.ok }}' -eq 'true') { python scripts/confirm_release.py --mode full }
-          else { python scripts/confirm_release.py --mode ziponly }
+          python scripts/confirm_release.py --mode "$env:RELEASE_MODE"
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Releases did not contain expected final packages.' }
 
       - name: Record validation boundaries

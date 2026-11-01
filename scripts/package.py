@@ -40,8 +40,13 @@ info=ROOT/'App/AppInfo';info.mkdir(parents=True)
 for filename in ['appicon.ico','appicon_16.png','appicon_32.png','appicon_75.png','appicon_128.png','appicon_256.png']:
     shutil.copy2(pathlib.Path('assets')/filename,info/filename)
 version_bits=(meta['version'].split('.')+['0']*4)[:4]
-version_bits[-1]='1'  # revision 1: required 4-part PortableApps package version
+version_bits[-1]='2'  # builder revision 2; four-part PortableApps package version
 package_version='.'.join(version_bits)
+# Required official metadata: the homepage points to this independent builder, not an endorsed Thunderbird product.
+import os,re
+repo=os.environ.get('GITHUB_REPOSITORY','vhick/Thunderbird-PortableApps-Builder')
+if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo):raise RuntimeError('Invalid GITHUB_REPOSITORY')
+homepage='https://github.com/'+repo
 ini=f'''[Format]
 Type=PortableApps.comFormat
 Version=3.9
@@ -51,6 +56,7 @@ Name=Thunderbird Community Portable
 AppID=ThunderbirdCommunityPortable-vhick
 BaseAppName=Thunderbird
 Publisher=MZLA Technologies Corporation (Thunderbird) & independent community wrapper
+Homepage={homepage}
 Category=Internet
 Description=Independent portable build of the Thunderbird email client
 Language=English
@@ -64,7 +70,7 @@ CommercialUse=true
 
 [Version]
 PackageVersion={package_version}
-DisplayVersion={meta['version']} Community r1
+DisplayVersion={meta['version']} Community r2
 
 [Dependencies]
 Requires64bitOS=true
@@ -75,7 +81,7 @@ Icons=1
 Start=ThunderbirdCommunityPortable.exe
 '''
 (info/'appinfo.ini').write_text(ini,encoding='utf-8',newline='\r\n')
-(info/'installer.ini').write_text('[MainDirectories]\nRemoveDataDirectory=false\n',encoding='utf-8',newline='\r\n')
+(info/'installer.ini').write_text('[MainDirectories]\nRemoveAppDirectory=true\nRemoveDataDirectory=false\nRemoveOtherDirectory=true\n',encoding='utf-8',newline='\r\n')
 (ROOT/'Data/profile').mkdir(parents=True)
 (ROOT/'Data/temp').mkdir()
 (ROOT/'Data/settings').mkdir()

@@ -1,5 +1,5 @@
 import argparse,configparser,hashlib,json,pathlib,struct,subprocess,zipfile,shutil,os
-p=argparse.ArgumentParser();p.add_argument('--paf',action='store_true');args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--paf',action='store_true');p.add_argument('--independent',action='store_true');args=p.parse_args()
 root=pathlib.Path('stage/ThunderbirdCommunityPortable');targets=json.loads(pathlib.Path('work/targets.json').read_text('utf-8'))
 
 def pe(path):
@@ -31,7 +31,7 @@ with zipfile.ZipFile(zipname) as z:
     assert 'ThunderbirdCommunityPortable/Data/profile/' in names
     assert 'ThunderbirdCommunityPortable/App/Thunderbird/thunderbird.exe' in names
 if args.paf:
-    paf=pathlib.Path('dist')/targets['paf'];pe(paf)
+    paf=pathlib.Path('dist')/targets['paf_independent' if args.independent else 'paf'];pe(paf)
     seven='7z'
     t=subprocess.run([seven,'t',str(paf)],timeout=150,capture_output=True,text=True)
     if t.returncode:raise RuntimeError('PAF 7-Zip integrity failed: '+t.stdout[-1000:]+t.stderr[-1000:])
@@ -59,6 +59,6 @@ if args.paf:
         if digest(matches[0])!=digest(original):raise RuntimeError('Official PAF embedded file differs from the exact staged file: '+filename)
     print('Verified extracted PAF payload byte-for-byte matches staged launcher, Thunderbird binary and metadata')
     engine=pathlib.Path('dist/installer-engine.txt').read_text('utf-8').strip()
-    assert engine=='official PortableApps.com Installer 3.9.22',engine
-    print('PAF: valid PE, 7z integrity and names, official-tool provenance recorded; NOT GUI-install tested')
+    assert engine==('independent NSIS (not official PortableApps.com Installer)' if args.independent else 'official PortableApps.com Installer 3.9.22'),engine
+    print('PAF: valid PE and 7z archive integrity, exact staged payload, explicitly recorded engine; NOT GUI-install tested')
 print('Static stage/ZIP validation passed, Windows PE headers verified; no GUI claim')

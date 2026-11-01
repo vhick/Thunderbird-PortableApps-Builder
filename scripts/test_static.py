@@ -13,6 +13,9 @@ assert 'CreateProcessW' in launcher and ' -profile ' in launcher and 'Data' in l
 assert 'AppData' not in launcher and 'RegSetValue' not in launcher
 assert 'DisableAppUpdate' in (root/'scripts/package.py').read_text('utf-8')
 assert (root/'scripts/compile-launcher.cmd').is_file()
+assert (root/'installer/ThunderbirdCommunityPortable.nsi').is_file()
+assert (root/'scripts/build_independent_nsis.py').is_file()
+assert 'Homepage={homepage}' in (root/'scripts/package.py').read_text('utf-8')
 for name in ['appicon.ico','appicon_16.png','appicon_32.png','appicon_75.png','appicon_128.png','appicon_256.png']:
     assert (root/'assets'/name).is_file()
 for name in ['resolve.py','download.py','extract_thunderbird.py','build_paf.py','validate.py','package.py','verify_publisher.py','confirm_release.py','check_existing.py']:
