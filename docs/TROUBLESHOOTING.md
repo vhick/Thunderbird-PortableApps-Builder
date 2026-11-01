@@ -34,3 +34,11 @@ On the standard Windows runner the fallback looks for `makensis.exe`, then attem
 ## r2 independent installer creates an unexpected folder
 
 The destination directory is the existing **PortableApps parent folder**, not `ThunderbirdCommunityPortable` itself. When invoked through the Platform the installer tries to honor `/DESTINATION=`; when run directly, select the parent directory on its visible folder-selection page. Confirm the resulting `PortableApps\\ThunderbirdCommunityPortable\\ThunderbirdCommunityPortable.exe` path before adding a real mail account.
+
+## r3: PortableApps Menu still shows the old generic icon
+
+Verify you installed a **new r3 package** (release filename contains `_r3_`, release tag contains `-r3`), rather than opening an older r2 release. Check `App\AppInfo\appicon.ico` and `appicon_256.png` exist, and `Other\Source\THUNDERBIRD-ICON-PROVENANCE.json` identifies `mail/branding/thunderbird/messengerWindow.ico`. The native `ThunderbirdCommunityPortable.exe` was rebuilt with that icon too. Refresh or restart the PortableApps Platform; Windows Explorer may cache icons. **Do not delete Data to fix an icon.**
+
+## r3: official Thunderbird icon download or verification failed
+
+The builder refuses to silently ship generic icons. Check the step **Obtain official Thunderbird Windows icon** for the GitHub API error or checksum mismatch. `GH_TOKEN` is supplied automatically by GitHub Actions; no personal access token should be required. If the upstream file moved or branding changed, revalidate the icon path and build scripts against the official Thunderbird repository rather than fabricating replacement artwork.

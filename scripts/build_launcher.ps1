@@ -6,7 +6,8 @@ if (-not $vs) { throw 'Windows runner is missing VS C++ x64 compiler.' }
 $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
 if (-not (Test-Path -LiteralPath $vcvars)) { throw 'Missing vcvars64.bat' }
 New-Item -ItemType Directory -Path 'work' -Force | Out-Null
-# Compile directly into a genuine PE executable with an embedded original, non-trademarked icon.
+# Compile with the original Thunderbird icon downloaded from its verified upstream source.
+if (-not (Test-Path -LiteralPath 'work/icons/appicon.ico')) { throw 'Missing verified official Thunderbird icon. Run prepare_icons.py first.' }
 $env:PORTABLE_VCVARS = $vcvars
 $proc = [Diagnostics.ProcessStartInfo]::new('cmd.exe')
 $proc.UseShellExecute = $false

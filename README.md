@@ -1,39 +1,54 @@
-# Thunderbird Community PortableApps Builder r2 — PAF Stall / Fallback Fix
+# Thunderbird Community PortableApps Builder r3 — Original Thunderbird Icon Fix
 
 An **independent, no-fork** GitHub Actions builder for the latest stable 64-bit Thunderbird Windows release. It downloads and checks Mozilla's original Windows installer, extracts the official app without running a setup wizard, compiles a genuine C++ portable launcher and publishes verified release packages through `vhick/portable-release-publisher@v1.1.1`.
 
 **This is not an official Thunderbird, PortableApps.com, or Mozilla release.** For fully supported PortableApps.com distribution, use [Thunderbird, Portable Edition](https://portableapps.com/apps/internet/thunderbird_portable). The project-specific source audit and licensing discussion are in `docs/AUDIT.md`.
 
-## r2: what caused the r1 failure and what changed
+## r3: original Thunderbird icon now replaces generic artwork
+
+r2 embedded a generic, programmatically generated icon in both the C++ launcher and `App/AppInfo` menu files. r3 changes the **build pipeline**, not just the README or pre-made PNGs:
+
+1. `scripts/prepare_icons.py` downloads Thunderbird's **real release branding icon** from `thunderbird/thunderbird-desktop`, path `mail/branding/thunderbird/messengerWindow.ico`. A resolved official release source commit is preferred. If that tag is not available, the script pins the exact upstream `main` commit at build time and marks this fallback in the included provenance record.
+2. The downloaded original ICO must have a valid multi-size icon header, at least one 128px or larger frame, and a verified Git blob checksum (compared against GitHub's reported file blob SHA-1). The script also records SHA-256 and upstream source commit in `Other/Source/THUNDERBIRD-ICON-PROVENANCE.json`.
+3. A pinned `Pillow==11.3.0` package creates exact-size `appicon_16.png`, `appicon_32.png`, `appicon_75.png`, `appicon_128.png` and `appicon_256.png` from original icon frames. The original `appicon.ico` is copied **unchanged** from official source. Old `assets/` placeholder graphics have been removed from the builder entirely.
+4. `launcher/launcher.rc` embeds the same verified original Thunderbird ICO in the genuine compiled `ThunderbirdCommunityPortable.exe`. CI checks the native EXE contains an actual icon resource from that file and blocks publishing if it does not.
+5. `scripts/package.py` copies those exact checked icon files into `App/AppInfo`. ZIP/PAF packaging includes the same source artwork; stage validation compares every icon against the downloaded original, and confirms the icon provenance is packaged.
+6. New r3 release tags and filenames prevent overwriting existing r2 releases. The launcher runtime, profile handling, official PAF path and independent installer fallback retain their r2 behavior.
+
+**Trademark notice:** The Thunderbird icon is Thunderbird's own artwork and may be subject to Thunderbird/Mozilla trademark restrictions. This community builder is not endorsed by Thunderbird, Mozilla or PortableApps.com. Keep the project private for personal use unless you have reviewed the applicable redistribution and branding conditions. The existing public-distribution acknowledgement requirement remains.
+
+This icon update requires a new Actions build; it cannot retroactively change an existing r2 ZIP or PAF. Windows can cache icons: refresh/restart the PortableApps menu after upgrading.
+
+## r2: earlier PAF stall and fallback changes (retained in r3)
 
 The November 1, 2026 logs show the Thunderbird download, checksum verification, application extraction, C++ launcher compilation, headless startup check, ZIP packaging and ZIP validation succeeding. The official `PortableApps.comInstaller.exe` was extracted from the SHA-256-verified PortableApps.com Installer 3.9.22 distribution but failed to finish when called with the prepared app directory. The subprocess timed out after **480 seconds**. That is consistent with a prompt or stalled vendor packager; the log does not prove which. The r1 PowerShell fallback branch also inherited the nonzero exit code and failed before the shared release publisher could run.
 
-r2 makes these changes:
+The retained r2 corrections are:
 
 1. Supplies a proper `Homepage` in `App/AppInfo/appinfo.ini` and checks required metadata before invoking the official packager. A missing homepage was an actual metadata gap, but cannot conclusively be called the source of the timeout.
 2. Keeps the verified official headless tool acquisition and SHA-256 pin. Shortens official compiler wait to a **bounded 210 seconds**; after a timeout/failure it also checks controlled output locations for a newly created, genuinely intact vendor-built PAF.
 3. The optional vendor-packaging step now **always exits successfully after selecting a verified fallback**, rather than accidentally terminating the overall workflow. A failed application download, checksum, launcher compilation, runtime smoke check or ZIP validation still fails the build.
 4. Adds an **explicit, readable independent NSIS fallback** with its own source in `installer/ThunderbirdCommunityPortable.nsi`, distinct release name and engine provenance. It creates a genuine interactive Windows installer with a `.paf.exe` suffix and a PortableApps-style file layout, but it is **NOT the unmodified PortableApps.com Installer nor certified for PortableApps Platform**. Its actual installation/upgrade and Platform UI behavior remain subject to real Windows manual testing.
 5. If both installer routes fail (or the independent fallback is disabled), publishes the independently verified EXE-based PortableApps ZIP under a clearly named `-ziponly` release tag. A failed optional installer must never stop valid ZIP publishing.
-6. Uses separate r2 release tags so r1 data, assets and immutable releases cannot be overwritten or misidentified.
+6. Uses a separate builder revision for release tags so prior releases cannot be overwritten or misidentified.
 
 ## Release outputs
 
 | Engine used | GitHub release tag | Packages |
 | --- | --- | --- |
-| Verified original official PortableApps.com Installer 3.9.22 | `portable-v<VERSION>-r2` | `ThunderbirdCommunityPortable_<VERSION>_r2_win64.zip` and `ThunderbirdCommunityPortable_<VERSION>_r2_win64.paf.exe` |
-| Independent, explicitly labeled NSIS fallback | `portable-v<VERSION>-r2-independent-nsis` | same ZIP plus `ThunderbirdCommunityPortable_<VERSION>_r2_win64_IndependentNSIS.paf.exe` |
-| ZIP-only | `portable-v<VERSION>-r2-ziponly` | the verified ZIP only |
+| Verified original official PortableApps.com Installer 3.9.22 | `portable-v<VERSION>-r3` | `ThunderbirdCommunityPortable_<VERSION>_r3_win64.zip` and `ThunderbirdCommunityPortable_<VERSION>_r3_win64.paf.exe` |
+| Independent, explicitly labeled NSIS fallback | `portable-v<VERSION>-r3-independent-nsis` | same ZIP plus `ThunderbirdCommunityPortable_<VERSION>_r3_win64_IndependentNSIS.paf.exe` |
+| ZIP-only | `portable-v<VERSION>-r3-ziponly` | the verified ZIP only |
 
 The GitHub Actions run summary declares which engine was selected. Independent `.paf.exe` is *not* official-tool-generated, even though it is a real NSIS installer executable. Do not claim PortableApps.com certification or confirmed Menu installation without manually testing it.
 
 ## Replace your existing builder using GitHub Desktop
 
-1. Download and extract the **r2 builder kit ZIP** outside your existing GitHub Desktop repository.
+1. Download and extract the **r3 builder kit ZIP** outside your existing GitHub Desktop repository.
 2. Exit any prior builder scripts. In **GitHub Desktop**, select your existing `Thunderbird-PortableApps-Builder` repository.
-3. Choose **Repository → Show in Explorer**. Copy the *contents* of the extracted r2 kit into this existing repository folder, allowing replacement of r1 files. Include the `.github` folder. **Do not copy or replace `.git`, and do not create a new repository or fork Thunderbird.**
+3. Choose **Repository → Show in Explorer**. Copy the *contents* of the extracted r3 kit into this existing repository folder, allowing replacement of r2 files. Include the `.github` folder. The old r2 `assets` folder contains only unused generic icons and can be deleted from the builder repository. **Do not copy or replace `.git`, and do not create a new repository or fork Thunderbird.**
 4. Check GitHub Desktop's Changes tab. Confirm that files such as `.github/workflows/build-portableapps.yml`, `scripts/build_paf.py`, `scripts/build_independent_nsis.py`, `scripts/package.py`, `installer/ThunderbirdCommunityPortable.nsi` and `README.md` have changed or been added.
-5. Enter the commit summary `Fix Thunderbird PortableApps PAF stall - r2`, click **Commit to main**, then **Push origin**.
+5. Enter the commit summary `Use original Thunderbird artwork in PortableApps - r3`, click **Commit to main**, then **Push origin**.
 6. Open your repository on GitHub, go to **Actions → Build Thunderbird Community Portable (official PAF, independent fallback, ZIP) → Run workflow**.
 7. Keep **version** as `latest`. Leave **allow_independent_nsis_fallback** enabled if you are willing to test an independently built NSIS installer when the official compiler stalls. Disable it if you want only an official-tool PAF or the verified ZIP. The separate **public redistribution acknowledgement** is required for public repositories; private repositories normally leave it off.
 8. Select **Run workflow**. Open the run summary and check `Final packaging engine: official`, `independent`, or `ziponly`.
@@ -70,4 +85,4 @@ The GitHub Actions run summary declares which engine was selected. Independent `
 
 ## Validation boundaries
 
-The r2 ZIP builder source was syntax checked on Linux with a simulated Windows executable fixture; real Thunderbird and Windows installer compilation, actual PAF installation, a second-location launch, data preservation and live GitHub Releases publishing must be verified in your next GitHub Actions/Windows tests. An error on the mandatory ZIP path continues to block publishing rather than being treated as a fallback.
+The r3 ZIP builder source and icon conversion logic were checked offline on Linux with synthetic test artwork; real Thunderbird and Windows installer compilation, actual PAF installation, a second-location launch, data preservation and live GitHub Releases publishing must be verified in your next GitHub Actions/Windows tests. An error on the mandatory ZIP path continues to block publishing rather than being treated as a fallback.

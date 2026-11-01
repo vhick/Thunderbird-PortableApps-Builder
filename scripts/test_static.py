@@ -15,9 +15,12 @@ assert 'DisableAppUpdate' in (root/'scripts/package.py').read_text('utf-8')
 assert (root/'scripts/compile-launcher.cmd').is_file()
 assert (root/'installer/ThunderbirdCommunityPortable.nsi').is_file()
 assert (root/'scripts/build_independent_nsis.py').is_file()
+assert 'work/icons' in (root/'scripts/package.py').read_text('utf-8')
+assert r'work\\icons\\appicon.ico' in (root/'launcher/launcher.rc').read_text('utf-8')
 assert 'Homepage={homepage}' in (root/'scripts/package.py').read_text('utf-8')
-for name in ['appicon.ico','appicon_16.png','appicon_32.png','appicon_75.png','appicon_128.png','appicon_256.png']:
-    assert (root/'assets'/name).is_file()
+assert (root/'scripts/prepare_icons.py').is_file() and (root/'scripts/test_icons.py').is_file()
+assert 'prepare_icons.py --verify-launcher' in wf
+assert 'python scripts/prepare_icons.py' in wf
 for name in ['resolve.py','download.py','extract_thunderbird.py','build_paf.py','validate.py','package.py','verify_publisher.py','confirm_release.py','check_existing.py']:
     assert (root/'scripts'/name).is_file()
-print('PASS: static builder inventory, launcher behavior references, icons and publisher integration')
+print('PASS: static builder inventory, launcher behavior references, upstream Thunderbird icons and publisher integration')

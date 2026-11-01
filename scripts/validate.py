@@ -19,6 +19,21 @@ assert ini['Control']['Start']=='ThunderbirdCommunityPortable.exe'
 assert ini['Details']['AppID']=='ThunderbirdCommunityPortable-vhick'
 assert not list((root/'Data/profile').iterdir()),'Do not ship an existing Thunderbird user profile'
 assert (root/'App/AppInfo/appicon.ico').is_file()
+# All exported menu icons must be the exact files validated against Thunderbird's
+# source icon. A file named appicon is not by itself proof of correct branding.
+from pathlib import Path
+from PIL import Image
+icon_home=Path('work/icons')
+icon_provenance=json.loads((icon_home/'THUNDERBIRD-ICON-PROVENANCE.json').read_text('utf-8'))
+assert icon_provenance['source_path']=='mail/branding/thunderbird/messengerWindow.ico'
+assert hashlib.sha256((icon_home/'appicon.ico').read_bytes()).hexdigest()==icon_provenance['sha256']
+for sz in (16,32,75,128,256):
+    name=f'appicon_{sz}.png'
+    assert (root/'App/AppInfo'/name).read_bytes()==(icon_home/name).read_bytes()
+    with Image.open(root/'App/AppInfo'/name) as img:
+        assert img.size==(sz,sz) and img.getbbox(),f'Invalid PNG {name}'
+assert (root/'App/AppInfo/appicon.ico').read_bytes()==(icon_home/'appicon.ico').read_bytes()
+assert (root/'Other/Source/THUNDERBIRD-ICON-PROVENANCE.json').read_bytes()==(icon_home/'THUNDERBIRD-ICON-PROVENANCE.json').read_bytes()
 assert json.loads((root/'App/Thunderbird/distribution/policies.json').read_text('utf-8'))['policies']['DisableAppUpdate'] is True
 zipname=pathlib.Path('dist')/targets['zip']
 with zipfile.ZipFile(zipname) as z:

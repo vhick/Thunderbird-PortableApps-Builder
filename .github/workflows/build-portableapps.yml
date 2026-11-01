@@ -85,10 +85,24 @@ jobs:
         shell: pwsh
         run: python scripts/extract_thunderbird.py
 
+      - name: Obtain official Thunderbird Windows icon and generate PortableApps menu artwork
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: Pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to install image processing library for official Thunderbird icon.' }
+          python scripts/prepare_icons.py
+          if ($LASTEXITCODE -ne 0) { throw 'Verified Thunderbird icon acquisition/conversion failed. Refusing generic branding.' }
+
       - name: Compile the genuine C++ launcher on Windows
         if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         run: ./scripts/build_launcher.ps1
+
+      - name: Confirm compiled launcher embeds the actual Thunderbird icon
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: python scripts/prepare_icons.py --verify-launcher
 
       - name: Package official Thunderbird binaries and portable launcher
         if: steps.existing.outputs.skip != 'true'
