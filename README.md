@@ -1,57 +1,65 @@
-# Thunderbird PortableApps Builder r4 — standard naming + authentic Thunderbird icons
+# Thunderbird PortableApps Builder r6 — Stormhen Prevention + Safe TraceGuard (Standard Naming and Official Icons)
 
-**Application stage folder and ZIP root:** `ThunderbirdPortable/`  
-**Compiled, genuine Windows launcher:** `ThunderbirdPortable.exe`  
-**PortableApps metadata:** `App/AppInfo/appinfo.ini`, `[Control] Start=ThunderbirdPortable.exe`  
-**Display name:** `Thunderbird Portable (Independent Build)` (distinguishes this from the separately maintained official PortableApps.com build)  
-**Independent AppID:** `ThunderbirdPortable-vhick` (not the existing official ThunderbirdPortable AppID).  
-**Package revision:** r4; `portable-v<VERSION>-r4` release tag.
+**Standard folder and launcher:** `ThunderbirdPortable/ThunderbirdPortable.exe`
 
-## Important collision warning: official Thunderbird Portable is already called ThunderbirdPortable
+**Original Thunderbird icon:** The builder fetches the authentic upstream `messengerWindow.ico` and embeds it in the EXE, PortableApps menu icons and installer (no generic icon fallback).
 
-The official PortableApps.com Thunderbird Portable package uses the exact same `ThunderbirdPortable` folder name requested here. **Never extract this community ZIP over an existing official Thunderbird Portable installation** or install its PAF over an existing official `ThunderbirdPortable` folder. Both editions may use different profile conventions. The independent NSIS fallback checks the existing AppID and refuses to overwrite an unrelated existing package. This source-level check does not guarantee the official PortableApps.com Installer can detect a separate unofficial package.
+**r6 release tag:** `portable-v<VERSION>-r6` with distinct fallback suffixes. `vhick/portable-release-publisher@v1.1.1` is unchanged.
 
-**Safe first installation:** use an empty, separate PortableApps Platform root (e.g. `T:\TestPortableApps\PortableApps\ThunderbirdPortable`) or ensure there is no `ThunderbirdPortable` directory in your intended PortableApps root. To migrate from previous r1–r3 builds using `ThunderbirdCommunityPortable`, keep that installation as an intact backup until r4 has passed first-launch, mail/profile, location-move, and upgrade acceptance checks. Don't simply rename or merge old packages; copy only a backed-up `Data` folder to an *empty, separate* r4 installation after closing Thunderbird completely, and then test with unimportant data first. Thunderbird profile database downgrades are not supported.
+## New in r6: Stormhen prevention coexisting with TraceGuard
 
-## Authentic icon policy
+The genuine compiled C++ portable launcher now performs a conservative before/after snapshot of known Thunderbird-related host folders. Only newly created, dedicated Thunderbird directories under `%APPDATA%`, `%LOCALAPPDATA%`, and `%USERPROFILE%/AppData/LocalLow` can be safely captured into `Data/TraceGuard/captured` when no other Thunderbird is running and Thunderbird exits normally. New, empty `%APPDATA%/Mozilla` and `%LOCALAPPDATA%/Mozilla` parent directories may be removed. Pre-existing folders, ProgramData, shared Mozilla and GnuPG directories remain protected and are reported rather than forcibly moved or deleted.
 
-The build retrieves the original Thunderbird source-owned `mail/branding/thunderbird/messengerWindow.ico` from a pinned official upstream commit, verifies Git blob integrity, and records SHA-256 in `Other/Source/THUNDERBIRD-ICON-PROVENANCE.json`. The original icon (not generated placeholder artwork) becomes `App/AppInfo/appicon.ico` and the native EXE's compiled Windows icon resource. PortableApps-compliant PNGs are created at 16, 32, 75, 128, and 256 px, directly from the same verified Thunderbird artwork. Any icon download/verification/conversion or EXE embedding failure **stops** the build; there is no generic-icon fallback. Source: https://github.com/thunderbird/thunderbird-desktop/blob/main/mail/branding/thunderbird/messengerWindow.ico . The icon is Thunderbird's trademarked artwork; redistribution/branding permission must be checked separately.
+Thunderbird-local enterprise policies disable Windows Search integration and default-client prompts without editing the Windows registry. The launcher also sets `MOZ_MAINTENANCE_SERVICE=0`, `MOZ_UPDATER=0`, `MOZ_PLUGIN_PATH=Data/plugins`, and `MOZ_CRASHREPORTER_DISABLE=1` in its child environment. `TEMP` and `TMP` remain under `Data/temp`. Mozilla's supported crash reporter environment variables now point under `Data/CrashReports`. Every real launch generates an audit file under `Data/TraceGuard/logs/session-*.txt`, indicating `CAPTURED`, `KEEP`, `REMOVED`, or `NO TRACE` for each path.
 
-## What the builder does
+**This is not a guarantee of zero Windows traces.** It does not intercept all filesystem or registry writes, and it never assumes existing host Thunderbird data belongs to your portable application. Review `docs/R6-TRACEGUARD-STORMHEN.md` for the full paths, restrictions, safety controls and user acceptance checklist.
 
-- Downloads Mozilla's official stable Windows 64-bit Thunderbird installer, verifies the SHA-256 listed by Mozilla, and extracts the contained application (does not run its setup wizard).
-- Builds a native, inspectable C++ `ThunderbirdPortable.exe` that selects a portable profile under `Data/profile`, preserves persistent `Data` on updates, and redirects supported temporary paths.
-- Produces one ready-to-extract PortableApps ZIP and tries to produce a PAF using the actual checksum-verified official PortableApps.com Installer 3.9.22, with bounded headless execution. If it fails and the user explicitly enables the option, it may produce a separately labeled **independent NSIS** `.paf.exe`-style installer. That is **not** an official PortableApps.com Installer output or certification. Otherwise the build can release just the verified ZIP.
-- Checks all main filename/path references (stage, EXE, AppID, metadata, official and independent installers, ZIP and test paths) for consistent `ThunderbirdPortable` naming.
-- Publishes via `vhick/portable-release-publisher@v1.1.1` once in dry-run, once to release; no generated binaries committed and no `upload-artifact` storage.
-- No auto-created system startup, shell associations, services, hidden execution, registry clearing, or AV exclusions.
+## What the workflow produces
 
-## GitHub Desktop update instructions (r3 → r4)
+- `ThunderbirdPortable_<version>_r6_win64.zip`: ready-to-extract PortableApps package with the compiled `ThunderbirdPortable.exe` and authentic Thunderbird icons.
+- `ThunderbirdPortable_<version>_r6_win64.paf.exe`: attempted with the real official PortableApps.com Installer, not a repackaged ZIP.
+- If the official tool fails and the manual workflow option permits it: `ThunderbirdPortable_<version>_r6_win64_IndependentNSIS.paf.exe`, clearly identified as an **independent** NSIS package, not an official PortableApps.com Installer build/certification.
+- If PAF generation cannot be validated, the checked ZIP can be published on a distinct `-ziponly` release tag.
 
-1. Download and extract `Thunderbird_PortableApps_Builder_Kit_r4_Standard_Naming.zip`.
-2. Open the existing **builder repository** (not your installed Thunderbird data folder) in GitHub Desktop; choose **Repository → Show in Explorer**.
-3. Copy the *contents* of this r4 kit (including hidden `.github`) into your builder repository. Replace matching source files. **Delete only the obsolete builder files** `launcher/ThunderbirdCommunityPortable.cpp` and `installer/ThunderbirdCommunityPortable.nsi` if they remain; these are source files, not user mail data. Do **not** delete `.git` or installed `Data` folders.
-4. Return to GitHub Desktop, commit `Thunderbird r4 standard naming and original icon enforcement`, then **Push origin**.
-5. In GitHub → Actions, run **Build Thunderbird Portable (Independent Build)**, using `version=latest`. A public builder requires `public_redistribution_ack=true` and an independent legal/branding review. A **private builder** is recommended for personal use.
-6. Open **Releases** and get the r4 ZIP and, if available, the r4 PAF. Check the r4 Actions summary for the actual installer engine (official, independent, or ZIP only).
-7. On a *separate test PortableApps root with no existing ThunderbirdPortable folder*, install the package via the Platform's **Apps → Install a New App** option for a PAF, or extract the ZIP directly into its `PortableApps` parent folder. Confirm `PortableApps\ThunderbirdPortable\ThunderbirdPortable.exe` exists (no double nesting).
-8. Refresh/restart the PortableApps Menu. Launch and verify **Help → Troubleshooting Information → Profile Folder** points to `ThunderbirdPortable\Data\profile`. Follow `docs/MANUAL-ACCEPTANCE.md` before trusting the build with real mail.
+The builder downloads Mozilla's stable, checksum-verified official Windows 64-bit Thunderbird binaries, extracts the application without running an installer, compiles the portable launcher using MSVC on a Windows GitHub runner, and builds both packages from the same staged application. No developer repository fork is needed. Source-level full Mozilla/Thunderbird application compilation is not done.
 
-**Existing r1–r3 packages do not become r4 automatically.** Keep original `ThunderbirdCommunityPortable\Data` backed up. Renaming existing installation folders without care can break stored absolute references.
+## Protect existing ThunderbirdPortable installations
 
-## Tested vs untested
+The official PortableApps.com Thunderbird Portable **already uses** the `ThunderbirdPortable` folder name. This independent package has AppID `ThunderbirdPortable-vhick` and must NOT be installed over the existing official release. Use a **separate empty test PortableApps root**. Do not merge r1–r3 `ThunderbirdCommunityPortable` folders into this installation without a complete backup. Do not remove existing `Data` during updates. The independent NSIS package refuses unknown AppIDs; the official tool's collision behavior must be manually checked.
 
-The source archive undergoes Python syntax, workflow YAML, static naming/publisher/icon checks and offline simulated stage/ZIP checks. No Windows/GitHub runner or real PortableApps Menu is available in the local packager environment. The full CI Windows launcher, original icon download, official PAF engine, Platform installation and upgrade tests must be verified in a real Actions/Windows run; no such success is implied here.
+## Update the builder with GitHub Desktop
 
-## Reference and support
+1. Download and extract `Thunderbird_PortableApps_Builder_Kit_r6_Stormhen_TraceGuard.zip`.
+2. In **GitHub Desktop**, open your independent `Thunderbird-PortableApps-Builder` repository and select **Repository → Show in Explorer**.
+3. Copy ALL r6 kit contents into the builder repository, including the hidden `.github` folder. Replace existing source files. Do not delete `.git` or any **installed** `ThunderbirdPortable/Data` directory.
+4. In GitHub Desktop, commit `Thunderbird r6 safe TraceGuard and crash path containment` and **Push origin**.
+5. In the GitHub repository, open **Actions → Build Thunderbird Portable (Independent Build)**. Choose **Run workflow**, leave `latest` unless a specific stable version is required, and run it. Use a private repository for personal testing; public redistribution requires a legal/trademark review and explicit workflow acknowledgement.
+6. The workflow compiles and tests the TraceGuard fixture on Windows, compiles the real launcher, generates a ZIP and attempts an official-tool PAF, then validates before calling the Universal Release Publisher dry-run/publish actions.
+7. Get the completed ZIP and, if available, the installer from the repository's **Releases** page. The action does not use `actions/upload-artifact` for finished packages.
+8. In a separate PortableApps Platform test installation without another `ThunderbirdPortable` folder, use **Apps → Install a New App** to install a verified PAF. Or extract the ZIP into that test Platform's `PortableApps` folder. Refresh the menu.
+9. Launch `ThunderbirdPortable.exe`, close Thunderbird normally, and read `Data/TraceGuard/logs/session-*.txt`. Confirm the profile is in `Data/profile`; verify that no existing host Thunderbird data moved.
+10. Close Thunderbird and back up `Data`. Test updating to a newer r6 release without replacing the existing `Data` directory; confirm mail, calendar and account data remain present.
 
-- [PortableApps.com Format 3.9](https://portableapps.com/development/portableapps.com_format)
-- [Official PortableApps.com Installer](https://portableapps.com/apps/development/portableapps.com_installer)
-- [Thunderbird upstream](https://github.com/thunderbird/thunderbird-desktop)
-- [Thunderbird official portable distribution](https://portableapps.com/apps/internet/thunderbird_portable)
-- [Shared release publisher v1.1.1](https://github.com/vhick/portable-release-publisher/blob/v1.1.1/action.yml)
-- [r7 reference builder](https://github.com/vhick/FreeCrawl-PortableApps-Builder)
-- `docs/AUDIT.md` — codebase, profile, registry, upgrade and licensing notes
-- `docs/MANUAL-ACCEPTANCE.md` — Windows install, Data-preserving upgrade, relocation and Menu checks
-- `docs/R4-NAMING-ICON.md` — this revision's exact changes and acceptance requirements
-- `docs/TROUBLESHOOTING.md` — build failure diagnosis
+## Integrity tests
+
+Local/offline: Python syntax checks, static source/metadata checks, original icon generator checks, GitHub Actions YAML parsing, and an isolated simulated ZIP packaging test. On Windows CI: `tests/traceguard_fixture.cpp` tests safe capture, installed-profile preservation, machine-wide ProgramData exclusions, and empty shared-parent cleanup; the launcher is compiled and Thunderbird is started in headless mode. **These Windows tests have not been executed here**, and no interactive PAF upgrade/PortableApps Menu test should be claimed successful until manually verified.
+
+## Documentation
+
+- `docs/R6-TRACEGUARD-STORMHEN.md` — exact paths and data-safety model.
+- `docs/AUDIT.md` — application profile/runtime and Windows host limitations.
+- `docs/MANUAL-ACCEPTANCE.md` — install, relocation and data-preserving upgrade acceptance.
+- `docs/R1-FAILURE-ANALYSIS.md`, `docs/R3-ICON-FIX.md`, `docs/R4-NAMING-ICON.md` — historical fixes.
+- `docs/TROUBLESHOOTING.md` — build and packaging errors.
+- https://github.com/thunderbird/thunderbird-desktop — upstream source.
+- https://github.com/desktop/desktop — unrelated GitHub Desktop reference; its folders are never Thunderbird cleanup targets.
+
+**Legal:** Thunderbird and its icon are trademarked upstream artwork. A modified independently built portable distribution is not officially endorsed or certified by Mozilla/MZLA or PortableApps.com. Review rights before public publishing.
+
+## r6 provenance and risk notes
+
+The new reference is https://github.com/portapps/stormhen-portable (`main.go` on the master branch). The r6 launcher incorporates the *technique* of early environment setup and per-user `LocalLow` observation, not Stormhen binaries or its cleanup implementation. In Stormhen, `cleanup` is off by default; when enabled it calls `files.Cleanup` on entire `Thunderbird` directory trees. That approach is **not suitable** here because an installed Thunderbird profile could be present. Our TraceGuard continues to protect pre-existing paths, ProgramData, Mozilla shared data, symlinks, and uncertain shutdowns. Only empty shared-parent folders newly created in the session are eligible for removal.
+
+Stormhen was renamed from a Thunderbird-branded package after a Mozilla trademark complaint. This independent builder's use of Thunderbird's original brand and icon is **not** a grant of trademark permission. Keep personal builds private unless you have independently reviewed the applicable branding terms.
+
+Because the official PortableApps Thunderbird already owns the `ThunderbirdPortable` folder name, test the r6 build in a *separate Platform root*. Never overwrite an existing official `ThunderbirdPortable/Data`. New sessions cannot automatically identify and delete old r5 traces.

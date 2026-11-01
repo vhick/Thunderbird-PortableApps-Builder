@@ -4,6 +4,9 @@
 #define _UNICODE
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <tlhelp32.h>
+#include <climits>
+#include "TraceGuard.h"
 #include <shellapi.h>
 #include <algorithm>
 #include <cwctype>
@@ -96,6 +99,18 @@ static void migrate(const fs::path& data,const fs::path& profile) {
     }
     writeAll(record,utf8(current));
 }
+// Do not capture host data when another Thunderbird process may own those folders.
+// This is a conservative safety gate, not a general process monitoring facility.
+static unsigned activeThunderbirds() {
+    HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+    if(snapshot==INVALID_HANDLE_VALUE)return UINT_MAX; // unknown => never move
+    PROCESSENTRY32W p{};p.dwSize=sizeof(p);unsigned count=0;
+    if(!Process32FirstW(snapshot,&p)) {CloseHandle(snapshot);return UINT_MAX;}
+    do {
+        if(lower(p.szExeFile)==L"thunderbird.exe")++count;
+    } while(Process32NextW(snapshot,&p));
+    CloseHandle(snapshot);return count;
+}
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,LPWSTR,int) {
     try {
         wchar_t module[32768];DWORD n=GetModuleFileNameW(nullptr,module,32768);
@@ -129,18 +144,44 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,LPWSTR,int) {
         }
         if(argv)LocalFree(argv);
         if(diagnostics) {CloseHandle(mutex);return (fs::exists(profile)&&fs::exists(tb))?0:6;}
+        // Begin read-only snapshots before Thunderbird starts. Never capture an
+        // already-present folder or run cleanup if a Thunderbird instance exists.
+        const unsigned priorProcesses=activeThunderbirds();
+        traceguard::Session guard(data,traceguard::windows_roots());
+        if(!guard.ready()) {error(L"TraceGuard could not create its portable audit log. Check Data permissions.");CloseHandle(mutex);return 8;}
+        // Stormhen-derived preventative containment. These variables affect only
+        // this launcher and its child process, never the Windows user environment.
+        fs::path plugins=data/L"plugins";
+        fs::create_directories(plugins);
+        SetEnvironmentVariableW(L"MOZ_PLUGIN_PATH",plugins.c_str());
+        SetEnvironmentVariableW(L"MOZ_MAINTENANCE_SERVICE",L"0");
+        SetEnvironmentVariableW(L"MOZ_UPDATER",L"0");
+        // Disable Mozilla's crash exception handler, rather than launching its
+        // reporter. All other supported crash paths are still redirected below.
+        SetEnvironmentVariableW(L"MOZ_CRASHREPORTER_DISABLE",L"1");
         SetEnvironmentVariableW(L"TEMP",tmp.c_str());SetEnvironmentVariableW(L"TMP",tmp.c_str());
+        // Mozilla's documented crash-reporter paths stay portable where supported.
+        fs::path crash=data/L"CrashReports";
+        fs::create_directories(crash/L"events");
+        fs::create_directories(crash/L"pending");
+        SetEnvironmentVariableW(L"MOZ_CRASHREPORTER_DATA_DIRECTORY",crash.c_str());
+        SetEnvironmentVariableW(L"MOZ_CRASHREPORTER_EVENTS_DIRECTORY",(crash/L"events").c_str());
+        SetEnvironmentVariableW(L"MOZ_CRASHREPORTER_PING_DIRECTORY",(crash/L"pending").c_str());
         // Portable profile is selected BEFORE launching Thunderbird. No host profile is imported.
         std::wstring command=quote(tb.wstring())+L" -no-remote -profile "+quote(profile.wstring())+args;
         std::vector<wchar_t> cmd(command.begin(),command.end());cmd.push_back(L'\0');
         STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};
         std::wstring cwd=tb.parent_path().wstring();
         if(!CreateProcessW(tb.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,nullptr,cwd.c_str(),&si,&pi)) {
-            DWORD code=GetLastError();error(L"Could not start Thunderbird (Windows error "+std::to_wstring(code)+L").");CloseHandle(mutex);return 7;
+            DWORD code=GetLastError();guard.finish(false,true);error(L"Could not start Thunderbird (Windows error "+std::to_wstring(code)+L").");CloseHandle(mutex);return 7;
         }
         CloseHandle(pi.hThread);
         WaitForSingleObject(pi.hProcess,INFINITE);
-        DWORD code=1;GetExitCodeProcess(pi.hProcess,&code);CloseHandle(pi.hProcess);CloseHandle(mutex);
+        DWORD code=1;GetExitCodeProcess(pi.hProcess,&code);CloseHandle(pi.hProcess);
+        // Refuse cleanup if there was another instance before launch, or any
+        // Thunderbird process remains after the launched parent has exited.
+        guard.finish(code==0 && priorProcesses==0,activeThunderbirds()!=0);
+        CloseHandle(mutex);
         return (int)code;
     } catch(const std::exception& e) {error(L"Portable data error. Check the Data directory is writable.\n"+unutf8(e.what()));return 10;}
 }

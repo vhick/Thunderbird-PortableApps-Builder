@@ -32,6 +32,21 @@ if policies_file.exists():
 else:
     policy={'policies':{}}
 policy['policies']['DisableAppUpdate']=True
+# Stormhen's portable defaults, implemented with Thunderbird's documented
+# installation-local enterprise Preferences policy. No Windows registry writes.
+# Lock only host-integration risks; retain all unrelated user preferences.
+prefs=policy['policies'].setdefault('Preferences',{})
+if not isinstance(prefs,dict):raise RuntimeError('Invalid upstream Preferences policy')
+portable_defaults={
+    'mail.shell.checkDefaultClient':False,  # no default mail handler prompt
+    'mail.winsearch.enable':False,           # no Windows Search integration
+    'mail.winsearch.firstRunDone':True,
+}
+for key,value in portable_defaults.items():
+    managed={'Value':value,'Status':'locked'}
+    if key in prefs and prefs[key]!=managed:
+        raise RuntimeError('Unexpected conflicting upstream policy for '+key)
+    prefs[key]=managed
 policies_file.write_text(json.dumps(policy,indent=2)+'\n',encoding='utf-8')
 launcher=pathlib.Path('work/ThunderbirdPortable.exe')
 if not launcher.is_file():raise RuntimeError('Compiled portable launcher missing')
@@ -40,7 +55,7 @@ info=ROOT/'App/AppInfo';info.mkdir(parents=True)
 for filename in ['appicon.ico','appicon_16.png','appicon_32.png','appicon_75.png','appicon_128.png','appicon_256.png']:
     shutil.copy2(pathlib.Path('work/icons')/filename,info/filename)
 version_bits=(meta['version'].split('.')+['0']*4)[:4]
-version_bits[-1]='4'  # builder revision 4; four-part PortableApps package version
+version_bits[-1]='6'  # builder revision 6; four-part PortableApps package version
 package_version='.'.join(version_bits)
 # Required official metadata: the homepage points to this independent builder, not an endorsed Thunderbird product.
 import os,re
@@ -70,7 +85,7 @@ CommercialUse=true
 
 [Version]
 PackageVersion={package_version}
-DisplayVersion={meta['version']} Independent r4
+DisplayVersion={meta['version']} Independent r6
 
 [Dependencies]
 Requires64bitOS=true
@@ -85,10 +100,14 @@ Start=ThunderbirdPortable.exe
 (ROOT/'Data/profile').mkdir(parents=True)
 (ROOT/'Data/temp').mkdir()
 (ROOT/'Data/settings').mkdir()
+(ROOT/'Data/TraceGuard').mkdir()
+(ROOT/'Data/CrashReports').mkdir()
+(ROOT/'Data/plugins').mkdir()
 # No import or overwrite of existing host profiles.
 other=ROOT/'Other/Source';other.mkdir(parents=True)
 shutil.copy2('LICENSE-LAUNCHER.txt',other/'LICENSE-LAUNCHER.txt')
 shutil.copy2('launcher/ThunderbirdPortable.cpp',other/'ThunderbirdPortable.cpp')
+shutil.copy2('launcher/TraceGuard.h',other/'TraceGuard.h')
 shutil.copy2('launcher/launcher.rc',other/'launcher.rc')
 shutil.copy2('work/icons/THUNDERBIRD-ICON-PROVENANCE.json',other/'THUNDERBIRD-ICON-PROVENANCE.json')
 (other/'PROVENANCE.txt').write_text(f'''Unmodified official Thunderbird program files, extracted from Mozilla's checksum-verified Windows installer.
@@ -107,6 +126,6 @@ zip_path=path/targets['zip']
 with zipfile.ZipFile(zip_path,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=7,allowZip64=True) as z:
     for p in sorted(ROOT.rglob('*')):
         if p.is_file():z.write(p,p.relative_to(ROOT.parent).as_posix())
-    for d in [ROOT/'Data/profile',ROOT/'Data/temp',ROOT/'Data/settings']:
+    for d in [ROOT/'Data/profile',ROOT/'Data/temp',ROOT/'Data/settings',ROOT/'Data/TraceGuard',ROOT/'Data/CrashReports',ROOT/'Data/plugins']:
         z.writestr(d.relative_to(ROOT.parent).as_posix()+'/',b'')
 print('Staged',ROOT,'files',len(list(ROOT.rglob('*'))),'ZIP',zip_path,zip_path.stat().st_size)

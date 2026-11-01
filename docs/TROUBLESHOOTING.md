@@ -46,3 +46,14 @@ The builder refuses to silently ship generic icons. Check the step **Obtain offi
 ## r4: ThunderbirdPortable already exists
 
 The official PortableApps.com Thunderbird Portable uses the **same root folder name**. Never replace an official installation with this independent builder. Use a distinct PortableApps Platform root for this r4 package. The independent NSIS fallback rejects an existing different AppID, but do not assume the official-tool PAF makes the same check. Back up mail data and test installation on an empty platform root. See `docs/R4-NAMING-ICON.md`.
+
+
+## r6 TraceGuard remnants still appear in AppData or ProgramData
+
+Inspect `ThunderbirdPortable/Data/TraceGuard/logs/session-*.txt` after **closing** Thunderbird. `KEEP pre-existing` is intentional and protects installed Thunderbird profiles, even when the folder has new files. `KEEP shared` is intentional for ProgramData, Mozilla and gnupg. `KEEP uncertain shutdown/process ownership` means another Thunderbird instance was running, the process exit failed, or the process scan was unavailable. `CAPTURED` indicates safe movement into `Data/TraceGuard/captured`. Unexpected `.pending` folders are incomplete cross-drive captures; do not delete the host original without comparing them.
+
+For leftover host folders from older r4 versions, do NOT run a generic remover. Back up the old host folder and decide ownership manually. The builder cannot reliably identify which files belong to the installed Thunderbird, Firefox or older portable version after the fact. This is a safety feature, not a failure of the release publisher.
+
+### TraceGuard fixture fails before launcher compilation
+
+The workflow runs an isolated Windows test that simulates host folders under the runner's temporary directory. Inspect the `Compile and run isolated TraceGuard safety fixture` step. No real installed Thunderbird files are touched by the fixture. Do not bypass these tests merely to publish an installer.

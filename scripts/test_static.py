@@ -10,7 +10,13 @@ assert 'dry-run: \'true\'' in wf and 'dry-run: \'false\'' in wf
 assert 'actions/upload-artifact' not in wf
 launcher=(root/'launcher/ThunderbirdPortable.cpp').read_text('utf-8')
 assert 'CreateProcessW' in launcher and ' -profile ' in launcher and 'Data' in launcher
-assert 'AppData' not in launcher and 'RegSetValue' not in launcher
+assert 'RegSetValue' not in launcher
+assert 'traceguard::Session' in launcher
+assert 'MOZ_CRASHREPORTER_DATA_DIRECTORY' in launcher
+assert (root/'launcher/TraceGuard.h').is_file()
+assert 'CAPTURED' in (root/'launcher/TraceGuard.h').read_text('utf-8')
+assert (root/'tests/traceguard_fixture.cpp').is_file()
+assert 'test_traceguard.ps1' in wf
 assert 'DisableAppUpdate' in (root/'scripts/package.py').read_text('utf-8')
 assert (root/'scripts/compile-launcher.cmd').is_file()
 assert (root/'installer/ThunderbirdPortable.nsi').is_file()
@@ -29,7 +35,7 @@ print('PASS: static builder inventory, launcher behavior references, upstream Th
 from pathlib import Path
 import ast
 source=(root/'scripts/resolve.py').read_text('utf-8')
-assert "ThunderbirdPortable_" in source and "-r4" in source
+assert "ThunderbirdPortable_" in source and "-r6" in source
 assert "ThunderbirdPortable" in (root/'scripts/package.py').read_text('utf-8')
 assert "Start=ThunderbirdPortable.exe" in (root/'scripts/package.py').read_text('utf-8')
 assert "AppID=ThunderbirdPortable-vhick" in (root/'scripts/package.py').read_text('utf-8')
@@ -42,4 +48,13 @@ assert 'ThunderbirdPortable.exe' in nsis
 assert 'mail/branding/thunderbird/messengerWindow.ico' in (root/'scripts/prepare_icons.py').read_text('utf-8')
 assert 'appicon_256.png' in (root/'scripts/package.py').read_text('utf-8')
 assert 'assets/appicon.ico' not in (root/'scripts/package.py').read_text('utf-8')
-print('PASS: r4 canonical ThunderbirdPortable stage/EXE/AppID/installer names and official artwork')
+print('PASS: r6 canonical ThunderbirdPortable stage/EXE/AppID/installer names and official artwork')
+
+# r6: Stormhen-derived prevention and safe LocalLow coexistence.
+assert 'roots.localLow/L"Thunderbird"' in (root/'launcher/TraceGuard.h').read_text('utf-8')
+assert 'MOZ_MAINTENANCE_SERVICE' in launcher and 'MOZ_UPDATER' in launcher
+assert 'MOZ_PLUGIN_PATH' in launcher and 'MOZ_CRASHREPORTER_DISABLE' in launcher
+assert 'mail.winsearch.enable' in (root/'scripts/package.py').read_text('utf-8')
+assert 'mail.shell.checkDefaultClient' in (root/'scripts/package.py').read_text('utf-8')
+assert 'Data/plugins' in (root/'scripts/package.py').read_text('utf-8')
+print('PASS: r6 Stormhen prevention alongside TraceGuard, LocalLow coverage and policy safeguards')

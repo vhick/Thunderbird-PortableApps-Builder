@@ -19,6 +19,14 @@ assert ini['Control']['Start']=='ThunderbirdPortable.exe'
 assert ini['Details']['AppID']=='ThunderbirdPortable-vhick'
 assert not list((root/'Data/profile').iterdir()),'Do not ship an existing Thunderbird user profile'
 assert (root/'App/AppInfo/appicon.ico').is_file()
+assert (root/'Other/Source/TraceGuard.h').is_file()
+assert (root/'Data/TraceGuard').is_dir()
+assert (root/'Data/plugins').is_dir()
+policies=json.loads((root/'App/Thunderbird/distribution/policies.json').read_text('utf-8'))['policies']
+assert policies['DisableAppUpdate'] is True
+assert policies['Preferences']['mail.winsearch.enable']['Value'] is False
+assert policies['Preferences']['mail.shell.checkDefaultClient']['Value'] is False
+assert (root/'Data/CrashReports').is_dir()
 # All exported menu icons must be the exact files validated against Thunderbird's
 # source icon. A file named appicon is not by itself proof of correct branding.
 from pathlib import Path
@@ -44,6 +52,9 @@ with zipfile.ZipFile(zipname) as z:
     assert all(not n.startswith('stage/') for n in names),'ZIP has an unwanted stage/ parent folder'
     assert 'ThunderbirdPortable/App/AppInfo/appinfo.ini' in names
     assert 'ThunderbirdPortable/Data/profile/' in names
+    assert 'ThunderbirdPortable/Data/TraceGuard/' in names
+    assert 'ThunderbirdPortable/Data/plugins/' in names
+    assert 'ThunderbirdPortable/Other/Source/TraceGuard.h' in names
     assert 'ThunderbirdPortable/App/Thunderbird/thunderbird.exe' in names
 if args.paf:
     paf=pathlib.Path('dist')/targets['paf_independent' if args.independent else 'paf'];pe(paf)
