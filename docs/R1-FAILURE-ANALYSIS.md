@@ -15,7 +15,7 @@ The first error is under step 15, `Generate and independently verify official-to
 
 ```
 Official compiler failed; no mislabeled NSIS fallback:
-TimeoutExpired(['...\\PortableApps.comInstaller.exe', '...\\stage\\ThunderbirdCommunityPortable'], 480)
+TimeoutExpired(['...\\PortableApps.comInstaller.exe', '...\\stage\\ThunderbirdPortable'], 480)
 ...
 Process completed with exit code 1.
 ```

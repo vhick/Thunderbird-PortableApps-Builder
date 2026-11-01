@@ -7,7 +7,7 @@ VERSION='3.9.22'
 SHA256='689456f1fb1320c45e82a077afe6b87fb388fd3f75c41d9ee9ce8d45f3966b67'
 NAME=f'PortableApps.comInstaller_{VERSION}.paf.exe'
 TARGETS=json.loads(pathlib.Path('work/targets.json').read_text('utf-8'))
-stage=pathlib.Path('stage/ThunderbirdCommunityPortable').resolve()
+stage=pathlib.Path('stage/ThunderbirdPortable').resolve()
 dist=pathlib.Path('dist').resolve()
 toolhome=pathlib.Path(os.environ.get('RUNNER_TEMP','work'))/'tb-community-tool'
 toolhome.mkdir(parents=True,exist_ok=True)
@@ -47,7 +47,7 @@ for url in urls:
     print('Getting vendor tool from',url)
     try:
         h=hashlib.sha256();length=0
-        req=urllib.request.Request(url,headers={'User-Agent':'ThunderbirdCommunityPortableBuilder/1.0'})
+        req=urllib.request.Request(url,headers={'User-Agent':'ThunderbirdPortableBuilder/1.0'})
         with urllib.request.urlopen(req,timeout=45) as source,download.open('wb') as dest:
             while block:=source.read(1024*1024):
                 length+=len(block)
@@ -103,7 +103,7 @@ for p in found.values():
         with p.open('rb') as f:
             if f.read(2)!=b'MZ':continue
         out=run([seven,'l','-slt',p],90).stdout.lower().replace('\\','/')
-        for item in ('thunderbirdcommunityportable.exe','appinfo.ini','thunderbird.exe'):
+        for item in ('thunderbirdportable.exe','appinfo.ini','thunderbird.exe'):
             if item not in out:raise RuntimeError('Missing PAF component '+item)
         valid.append(p)
     except (subprocess.SubprocessError,RuntimeError) as ex:print('Rejected candidate:',p,str(ex)[:200])

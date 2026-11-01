@@ -2,7 +2,7 @@
 import hashlib,json,pathlib,urllib.request
 meta=json.loads(pathlib.Path('work/source.json').read_text(encoding='utf-8'))
 target=pathlib.Path('work/thunderbird-installer.exe')
-request=urllib.request.Request(meta['binary_url'],headers={'User-Agent':'ThunderbirdCommunityPortableBuilder/1.0'})
+request=urllib.request.Request(meta['binary_url'],headers={'User-Agent':'ThunderbirdPortableBuilder/1.0'})
 sha=hashlib.sha256()
 with urllib.request.urlopen(request,timeout=90) as source, target.open('wb') as dest:
     length=0

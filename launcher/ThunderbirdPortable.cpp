@@ -1,4 +1,4 @@
-// Original launcher source for Thunderbird Community Portable. MIT license; see LICENSE-LAUNCHER.txt.
+// Original launcher source for Thunderbird Portable (Independent Build). MIT license; see LICENSE-LAUNCHER.txt.
 // No elevation, shell integration, injection, registry changes, or code packing.
 #define UNICODE
 #define _UNICODE
@@ -14,7 +14,7 @@
 #include <vector>
 namespace fs = std::filesystem;
 
-static void error(const std::wstring& msg) { MessageBoxW(nullptr,msg.c_str(),L"Thunderbird Community Portable",MB_OK|MB_ICONERROR); }
+static void error(const std::wstring& msg) { MessageBoxW(nullptr,msg.c_str(),L"Thunderbird Portable (Independent Build)",MB_OK|MB_ICONERROR); }
 static std::wstring quote(const std::wstring& s) {
     std::wstring o=L"\""; unsigned slash=0;
     for(wchar_t c:s) {
@@ -111,7 +111,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,LPWSTR,int) {
         std::wstring canonical=lower(fs::absolute(root).lexically_normal().wstring());
         unsigned long long h=14695981039346656037ull;
         for(auto c:canonical){h^=(unsigned long long)c;h*=1099511628211ull;}
-        std::wstring mutexName=L"Local\\ThunderbirdCommunityPortable_"+std::to_wstring(h);
+        std::wstring mutexName=L"Local\\ThunderbirdPortable_"+std::to_wstring(h);
         HANDLE mutex=CreateMutexW(nullptr,FALSE,mutexName.c_str());
         if(!mutex) {error(L"Cannot create the portable instance lock.");return 3;}
         if(GetLastError()==ERROR_ALREADY_EXISTS) {error(L"This portable Thunderbird is already running. Close it before relaunching or updating.");CloseHandle(mutex);return 4;}

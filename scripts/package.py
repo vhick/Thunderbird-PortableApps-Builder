@@ -1,7 +1,7 @@
 """Build a safe PortableApps stage and ready-to-extract ZIP from verified binaries."""
 import configparser,hashlib,json,pathlib,shutil,zipfile
 from xml.sax.saxutils import escape
-ROOT=pathlib.Path('stage/ThunderbirdCommunityPortable')
+ROOT=pathlib.Path('stage/ThunderbirdPortable')
 meta=json.loads(pathlib.Path('work/source.json').read_text('utf-8'))
 targets=json.loads(pathlib.Path('work/targets.json').read_text('utf-8'))
 source=pathlib.Path('work/extracted')
@@ -33,14 +33,14 @@ else:
     policy={'policies':{}}
 policy['policies']['DisableAppUpdate']=True
 policies_file.write_text(json.dumps(policy,indent=2)+'\n',encoding='utf-8')
-launcher=pathlib.Path('work/ThunderbirdCommunityPortable.exe')
+launcher=pathlib.Path('work/ThunderbirdPortable.exe')
 if not launcher.is_file():raise RuntimeError('Compiled portable launcher missing')
 shutil.copy2(launcher,ROOT/launcher.name)
 info=ROOT/'App/AppInfo';info.mkdir(parents=True)
 for filename in ['appicon.ico','appicon_16.png','appicon_32.png','appicon_75.png','appicon_128.png','appicon_256.png']:
     shutil.copy2(pathlib.Path('work/icons')/filename,info/filename)
 version_bits=(meta['version'].split('.')+['0']*4)[:4]
-version_bits[-1]='3'  # builder revision 3; four-part PortableApps package version
+version_bits[-1]='4'  # builder revision 4; four-part PortableApps package version
 package_version='.'.join(version_bits)
 # Required official metadata: the homepage points to this independent builder, not an endorsed Thunderbird product.
 import os,re
@@ -52,8 +52,8 @@ Type=PortableApps.comFormat
 Version=3.9
 
 [Details]
-Name=Thunderbird Community Portable
-AppID=ThunderbirdCommunityPortable-vhick
+Name=Thunderbird Portable (Independent Build)
+AppID=ThunderbirdPortable-vhick
 BaseAppName=Thunderbird
 Publisher=MZLA Technologies Corporation (Thunderbird) & independent community wrapper
 Homepage={homepage}
@@ -70,7 +70,7 @@ CommercialUse=true
 
 [Version]
 PackageVersion={package_version}
-DisplayVersion={meta['version']} Community r3
+DisplayVersion={meta['version']} Independent r4
 
 [Dependencies]
 Requires64bitOS=true
@@ -78,7 +78,7 @@ RequiresAdmin=false
 
 [Control]
 Icons=1
-Start=ThunderbirdCommunityPortable.exe
+Start=ThunderbirdPortable.exe
 '''
 (info/'appinfo.ini').write_text(ini,encoding='utf-8',newline='\r\n')
 (info/'installer.ini').write_text('[MainDirectories]\nRemoveAppDirectory=true\nRemoveDataDirectory=false\nRemoveOtherDirectory=true\n',encoding='utf-8',newline='\r\n')
@@ -88,7 +88,7 @@ Start=ThunderbirdCommunityPortable.exe
 # No import or overwrite of existing host profiles.
 other=ROOT/'Other/Source';other.mkdir(parents=True)
 shutil.copy2('LICENSE-LAUNCHER.txt',other/'LICENSE-LAUNCHER.txt')
-shutil.copy2('launcher/ThunderbirdCommunityPortable.cpp',other/'ThunderbirdCommunityPortable.cpp')
+shutil.copy2('launcher/ThunderbirdPortable.cpp',other/'ThunderbirdPortable.cpp')
 shutil.copy2('launcher/launcher.rc',other/'launcher.rc')
 shutil.copy2('work/icons/THUNDERBIRD-ICON-PROVENANCE.json',other/'THUNDERBIRD-ICON-PROVENANCE.json')
 (other/'PROVENANCE.txt').write_text(f'''Unmodified official Thunderbird program files, extracted from Mozilla's checksum-verified Windows installer.

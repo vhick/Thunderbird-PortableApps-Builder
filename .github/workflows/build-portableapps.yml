@@ -1,4 +1,4 @@
-name: Build Thunderbird Community Portable (official PAF, independent fallback, ZIP)
+name: Build Thunderbird Portable (Independent Build) (official PAF, independent fallback, ZIP)
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: thunderbird-community-portable-release
+  group: thunderbird-portable-independent-release
   cancel-in-progress: false
 
 jobs:
@@ -207,7 +207,7 @@ jobs:
         with:
           files: ${{ steps.selection.outputs.files }}
           tag: ${{ steps.selection.outputs.tag }}
-          release-title: Thunderbird Community Portable ${{ steps.selection.outputs.tag }}
+          release-title: Thunderbird Portable (Independent Build) ${{ steps.selection.outputs.tag }}
           tag-prefix: portable-
           keep-releases: '3'
           prune: 'false'
@@ -219,7 +219,7 @@ jobs:
         with:
           files: ${{ steps.selection.outputs.files }}
           tag: ${{ steps.selection.outputs.tag }}
-          release-title: Thunderbird Community Portable ${{ steps.selection.outputs.tag }}
+          release-title: Thunderbird Portable (Independent Build) ${{ steps.selection.outputs.tag }}
           tag-prefix: portable-
           keep-releases: '3'
           prune: 'false'

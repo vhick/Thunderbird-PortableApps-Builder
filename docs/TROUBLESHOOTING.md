@@ -12,9 +12,9 @@
 | PAF generated but invalid | ZIP/PE/7z payload checks failed | A PAF failing verification is discarded. An independently checked ZIP may still publish as documented fallback; investigate the installer separately |
 | Publisher action contract changed | `verify_publisher.py` checks v1.1.1 tag and actual inputs | Fix after reading real `action.yml`; never guess unsupported arguments |
 | Release tag already exists incomplete | Shared publisher refuses mutation | Increase builder revision after analyzing cause, do not overwrite assets |
-| Thunderbird launches with installed profile | Direct `thunderbird.exe` invocation bypassed launcher | Always launch root `ThunderbirdCommunityPortable.exe` or PortableApps Menu |
+| Thunderbird launches with installed profile | Direct `thunderbird.exe` invocation bypassed launcher | Always launch root `ThunderbirdPortable.exe` or PortableApps Menu |
 | Mail store broken on relocation | User-specified external paths or an extension retained old absolute drive | Use the prefs backup; relocate known data; manually fix external paths through Thunderbird account settings |
-| PortableApps Menu icon missing | Wrong extraction directory or Platform not refreshed | Verify `X:\PortableApps\ThunderbirdCommunityPortable\App\AppInfo\appinfo.ini` and root EXE; refresh/restart menu |
+| PortableApps Menu icon missing | Wrong extraction directory or Platform not refreshed | Verify `X:\PortableApps\ThunderbirdPortable\App\AppInfo\appinfo.ini` and root EXE; refresh/restart menu |
 | Antivirus alert | Unsigned community wrapper may have low reputation | Inspect source/signatures and published SHA-256. Do **not** disable protection or add exclusions |
 
 ## Limits and distinctions
@@ -33,12 +33,16 @@ On the standard Windows runner the fallback looks for `makensis.exe`, then attem
 
 ## r2 independent installer creates an unexpected folder
 
-The destination directory is the existing **PortableApps parent folder**, not `ThunderbirdCommunityPortable` itself. When invoked through the Platform the installer tries to honor `/DESTINATION=`; when run directly, select the parent directory on its visible folder-selection page. Confirm the resulting `PortableApps\\ThunderbirdCommunityPortable\\ThunderbirdCommunityPortable.exe` path before adding a real mail account.
+The destination directory is the existing **PortableApps parent folder**, not `ThunderbirdPortable` itself. When invoked through the Platform the installer tries to honor `/DESTINATION=`; when run directly, select the parent directory on its visible folder-selection page. Confirm the resulting `PortableApps\\ThunderbirdPortable\\ThunderbirdPortable.exe` path before adding a real mail account.
 
-## r3: PortableApps Menu still shows the old generic icon
+## r4: PortableApps Menu still shows the old generic icon
 
-Verify you installed a **new r3 package** (release filename contains `_r3_`, release tag contains `-r3`), rather than opening an older r2 release. Check `App\AppInfo\appicon.ico` and `appicon_256.png` exist, and `Other\Source\THUNDERBIRD-ICON-PROVENANCE.json` identifies `mail/branding/thunderbird/messengerWindow.ico`. The native `ThunderbirdCommunityPortable.exe` was rebuilt with that icon too. Refresh or restart the PortableApps Platform; Windows Explorer may cache icons. **Do not delete Data to fix an icon.**
+Verify you installed a **new r4 package** (release filename contains `_r4_`, release tag contains `-r4`), rather than opening an older release. Check `App\AppInfo\appicon.ico` and `appicon_256.png` exist, and `Other\Source\THUNDERBIRD-ICON-PROVENANCE.json` identifies `mail/branding/thunderbird/messengerWindow.ico`. The native `ThunderbirdPortable.exe` was rebuilt with that icon too. Refresh or restart the PortableApps Platform; Windows Explorer may cache icons. **Do not delete Data to fix an icon.**
 
-## r3: official Thunderbird icon download or verification failed
+## r4: official Thunderbird icon download or verification failed
 
 The builder refuses to silently ship generic icons. Check the step **Obtain official Thunderbird Windows icon** for the GitHub API error or checksum mismatch. `GH_TOKEN` is supplied automatically by GitHub Actions; no personal access token should be required. If the upstream file moved or branding changed, revalidate the icon path and build scripts against the official Thunderbird repository rather than fabricating replacement artwork.
+
+## r4: ThunderbirdPortable already exists
+
+The official PortableApps.com Thunderbird Portable uses the **same root folder name**. Never replace an official installation with this independent builder. Use a distinct PortableApps Platform root for this r4 package. The independent NSIS fallback rejects an existing different AppID, but do not assume the official-tool PAF makes the same check. Back up mail data and test installation on an empty platform root. See `docs/R4-NAMING-ICON.md`.

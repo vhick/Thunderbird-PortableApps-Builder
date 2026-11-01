@@ -24,5 +24,5 @@ try {
   }
   if ($p.ExitCode -ne 0) { throw "C++ launcher build failed with exit code $($p.ExitCode)" }
 } finally { $p.Dispose() }
-if (-not (Test-Path 'work/ThunderbirdCommunityPortable.exe')) { throw 'Compiled launcher missing after successful compiler exit' }
+if (-not (Test-Path 'work/ThunderbirdPortable.exe')) { throw 'Compiled launcher missing after successful compiler exit' }
 Write-Host 'Native C++ launcher compiled successfully.'

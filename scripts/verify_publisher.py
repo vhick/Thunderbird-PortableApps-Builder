@@ -2,7 +2,7 @@
 import json,re,urllib.request
 base='https://api.github.com/repos/vhick/portable-release-publisher'
 def read(url):
-    with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'ThunderbirdCommunityPortableBuilder/1.0'}),timeout=30) as r:return r.read().decode('utf-8')
+    with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'ThunderbirdPortableBuilder/1.0'}),timeout=30) as r:return r.read().decode('utf-8')
 ref=json.loads(read(base+'/git/ref/tags/v1.1.1'))
 assert re.fullmatch('[a-f0-9]{40}',ref['object']['sha']), 'Invalid v1.1.1 tag reference'
 text=read('https://raw.githubusercontent.com/vhick/portable-release-publisher/v1.1.1/action.yml')

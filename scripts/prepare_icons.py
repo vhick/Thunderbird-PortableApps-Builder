@@ -28,7 +28,7 @@ SIZES=(16,32,75,128,256)
 def github_api(path):
     url='https://api.github.com/repos/'+REPO+'/'+path
     req=urllib.request.Request(url,headers={
-        'User-Agent':'ThunderbirdCommunityPortableBuilder/3.0',
+        'User-Agent':'ThunderbirdPortableBuilder/4.0',
         'Accept':'application/vnd.github+json',
         'X-GitHub-Api-Version':'2022-11-28'})
     token=os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
@@ -81,7 +81,7 @@ def create_pngs(ico_bytes,out):
 def validate_compiled_launcher():
     original=(OUTPUT/'appicon.ico').read_bytes()
     candidates=[entry['bytes'] for entry in parse_ico(original) if len(entry['bytes'])>1000]
-    executable=pathlib.Path('work/ThunderbirdCommunityPortable.exe')
+    executable=pathlib.Path('work/ThunderbirdPortable.exe')
     if not executable.is_file():raise RuntimeError('Native launcher EXE not present')
     data=executable.read_bytes()
     if data[:2]!=b'MZ':raise RuntimeError('Launcher lacks Windows PE DOS header')

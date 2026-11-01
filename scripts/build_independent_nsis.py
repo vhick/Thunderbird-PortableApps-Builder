@@ -2,11 +2,11 @@
 import hashlib,json,os,pathlib,shutil,subprocess,sys
 
 ROOT=pathlib.Path.cwd().resolve()
-stage=(ROOT/'stage/ThunderbirdCommunityPortable').resolve()
+stage=(ROOT/'stage/ThunderbirdPortable').resolve()
 targets=json.loads((ROOT/'work/targets.json').read_text(encoding='utf-8'))
 output=(ROOT/'dist'/targets['paf_independent']).resolve()
 output.parent.mkdir(parents=True,exist_ok=True)
-if not (stage/'ThunderbirdCommunityPortable.exe').is_file():
+if not (stage/'ThunderbirdPortable.exe').is_file():
     raise RuntimeError('Verified staged EXE missing; no independent installer generated')
 
 candidates=[pathlib.Path(x) for x in (
@@ -26,7 +26,7 @@ with makensis.open('rb') as f:
     if f.read(2)!=b'MZ':raise RuntimeError('Invalid NSIS compiler executable')
 if output.exists():output.unlink()
 argv=[str(makensis),'/V3',f'/DSTAGE_DIR={stage}',f'/DOUTPUT_FILE={output}',
-      str(ROOT/'installer/ThunderbirdCommunityPortable.nsi')]
+      str(ROOT/'installer/ThunderbirdPortable.nsi')]
 print('Independent NSIS compilation:',argv[0],flush=True)
 try:
     result=subprocess.run(argv,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=480)

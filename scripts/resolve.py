@@ -9,7 +9,7 @@ VERSIONS = 'https://product-details.mozilla.org/1.0/thunderbird_versions.json'
 HOST = 'https://releases.mozilla.org/pub/thunderbird/releases'
 
 def get(url, limit=3_000_000):
-    req = urllib.request.Request(url, headers={'User-Agent': 'ThunderbirdCommunityPortableBuilder/1.0','Accept': 'application/vnd.github+json' if 'api.github.com' in url else '*/*'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'ThunderbirdPortableBuilder/1.0','Accept': 'application/vnd.github+json' if 'api.github.com' in url else '*/*'})
     with urllib.request.urlopen(req, timeout=30) as r:
         blob=r.read(limit+1)
     if len(blob)>limit: raise RuntimeError('Oversized metadata response: '+url)
@@ -44,8 +44,8 @@ def main():
     }
     pathlib.Path('work').mkdir(exist_ok=True)
     pathlib.Path('work/source.json').write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
-    tag_name=f'portable-v{version}-r3'
-    targets={'tag':tag_name,'zip':f'ThunderbirdCommunityPortable_{version}_r3_win64.zip','paf':f'ThunderbirdCommunityPortable_{version}_r3_win64.paf.exe','paf_independent':f'ThunderbirdCommunityPortable_{version}_r3_win64_IndependentNSIS.paf.exe'}
+    tag_name=f'portable-v{version}-r4'
+    targets={'tag':tag_name,'zip':f'ThunderbirdPortable_{version}_r4_win64.zip','paf':f'ThunderbirdPortable_{version}_r4_win64.paf.exe','paf_independent':f'ThunderbirdPortable_{version}_r4_win64_IndependentNSIS.paf.exe'}
     pathlib.Path('work/targets.json').write_text(json.dumps(targets,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(data,indent=2))
     with open(os.environ.get('GITHUB_OUTPUT',os.devnull),'a',encoding='utf-8') as o:

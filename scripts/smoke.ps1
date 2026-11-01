@@ -1,11 +1,11 @@
 # Real Windows executable and child process check in an isolated COPY of the stage.
 # No test profile or location marker ever leaks into the distributed ZIP/PAF stage.
 $ErrorActionPreference='Stop'
-$source=(Resolve-Path 'stage/ThunderbirdCommunityPortable').Path
+$source=(Resolve-Path 'stage/ThunderbirdPortable').Path
 $target=Join-Path $env:RUNNER_TEMP 'ThunderbirdPortable-LaunchSmoke'
 if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
 Copy-Item -LiteralPath $source -Destination $target -Recurse -Force
-$exe=Join-Path $target 'ThunderbirdCommunityPortable.exe'
+$exe=Join-Path $target 'ThunderbirdPortable.exe'
 function Test-Launch([string[]]$ProgramArgs,[int]$TimeoutSeconds) {
   $info=[Diagnostics.ProcessStartInfo]::new($exe)
   $info.UseShellExecute=$false
@@ -26,7 +26,7 @@ $old=$target
 $new=$target+'-moved'
 if (Test-Path $new) {Remove-Item -LiteralPath $new -Recurse -Force}
 Move-Item -LiteralPath $old -Destination $new
-$exe=Join-Path $new 'ThunderbirdCommunityPortable.exe'
+$exe=Join-Path $new 'ThunderbirdPortable.exe'
 Test-Launch @('--portable-diagnostics') 30
 Test-Launch @('-headless','-version') 120
 Write-Host 'PASS: compiled launcher runs real Thunderbird headless and survives directory relocation. Profile write operation is tested separately in manual GUI acceptance.'

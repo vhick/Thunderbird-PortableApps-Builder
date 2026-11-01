@@ -13,10 +13,10 @@ The Thunderbird source repository has its actual Windows release icon at `mail/b
 The Actions job retrieves this file from an exact commit using GitHub's Contents API, verifies Git object integrity and records its SHA-256. If the stable release tag is unavailable, it pins the exact main commit instead of silently using an unversioned URL. Download or verification failure is fatal; generic icon files can no longer leak into release outputs.
 
 ## Icon paths in delivered application
-- `ThunderbirdCommunityPortable/ThunderbirdCommunityPortable.exe`: official icon embedded in compiled launcher resource.
-- `ThunderbirdCommunityPortable/App/AppInfo/appicon.ico`: original upstream ICO bytes.
-- `ThunderbirdCommunityPortable/App/AppInfo/appicon_16.png`, `_32.png`, `_75.png`, `_128.png`, `_256.png`: converted from original ICO.
-- `ThunderbirdCommunityPortable/Other/Source/THUNDERBIRD-ICON-PROVENANCE.json`: source commit and checksum audit trail.
+- `ThunderbirdPortable/ThunderbirdPortable.exe`: official icon embedded in compiled launcher resource.
+- `ThunderbirdPortable/App/AppInfo/appicon.ico`: original upstream ICO bytes.
+- `ThunderbirdPortable/App/AppInfo/appicon_16.png`, `_32.png`, `_75.png`, `_128.png`, `_256.png`: converted from original ICO.
+- `ThunderbirdPortable/Other/Source/THUNDERBIRD-ICON-PROVENANCE.json`: source commit and checksum audit trail.
 - PAF EXE installer: installer branding uses `App/AppInfo/appicon.ico`, both official and independent fallback paths.
 
 ## Tests and limitations
