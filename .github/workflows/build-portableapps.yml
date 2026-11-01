@@ -1,0 +1,170 @@
+name: Build Thunderbird Community Portable (ZIP + official PAF)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Stable Thunderbird version; latest recommended (never beta/nightly)'
+        required: true
+        type: string
+        default: latest
+      public_redistribution_ack:
+        description: 'PUBLIC repositories only: I confirm I reviewed Thunderbird trademark/redistribution terms and accept responsibility'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: thunderbird-community-portable-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Verify, package, validate, and release
+    runs-on: windows-2022
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+    steps:
+      - name: Check out standalone builder repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use reproducible Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Public distribution safety gate
+        shell: pwsh
+        env:
+          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
+          PUBLIC_ACK: ${{ inputs.public_redistribution_ack }}
+        run: |
+          if ($env:PRIVATE_REPOSITORY -ne 'true' -and $env:PUBLIC_ACK -ne 'true') {
+            throw 'Public builds require checking public_redistribution_ack after reviewing Thunderbird trademark rights. Use a Private repository for personal builds.'
+          }
+
+      - name: Check builder structure before downloading
+        shell: pwsh
+        run: python scripts/test_static.py
+
+      - name: Resolve stable Thunderbird and official release checksum
+        id: source
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: python scripts/resolve.py --version "$env:REQUESTED_VERSION"
+
+      - name: Verify exact shared publisher action contract
+        shell: pwsh
+        run: python scripts/verify_publisher.py
+
+      - name: Skip complete immutable existing release
+        id: existing
+        shell: pwsh
+        run: python scripts/check_existing.py --mode full
+
+      - name: Download official Thunderbird installer with Mozilla SHA-256 verification
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: python scripts/download.py
+
+      - name: Verify and extract Mozilla installer without GUI (bounded)
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: python scripts/extract_thunderbird.py
+
+      - name: Compile the genuine C++ launcher on Windows
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: ./scripts/build_launcher.ps1
+
+      - name: Package official Thunderbird binaries and portable launcher
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: python scripts/package.py
+
+      - name: Run native launcher diagnostics and real Thunderbird headless smoke test
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: ./scripts/smoke.ps1
+
+      - name: Validate ZIP, PE metadata and portable data safety
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          python scripts/validate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Portable ZIP verification failed. Publishing is blocked.' }
+
+      - name: Generate and independently verify official-tool PAF (no GUI)
+        id: paf
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          python scripts/build_paf.py
+          $compiled = $LASTEXITCODE -eq 0
+          if ($compiled) {
+            python scripts/validate.py --paf
+            $compiled = $LASTEXITCODE -eq 0
+          }
+          if ($compiled) {
+            'ok=true' >> $env:GITHUB_OUTPUT
+            'PASS: Genuine official-tool PAF statically verified. Not GUI-install tested.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'ok=false' >> $env:GITHUB_OUTPUT
+            $targets = Get-Content 'work/targets.json' -Raw | ConvertFrom-Json
+            $pafPath = Join-Path 'dist' $targets.paf
+            if (Test-Path -LiteralPath $pafPath) { Remove-Item -LiteralPath $pafPath -Force }
+            'WARNING: Official PAF compilation or archive inspection failed; publishing the independently VERIFIED PortableApps ZIP ONLY with a -ziponly release tag. No fake PAF is published.' >> $env:GITHUB_STEP_SUMMARY
+            Write-Warning 'Official PAF unavailable or unverifiable; verified EXE-based ZIP is retained.'
+          }
+
+      - name: Check pre-existing ZIP-only fallback tag
+        id: fallback_existing
+        if: steps.existing.outputs.skip != 'true' && steps.paf.outputs.ok != 'true'
+        shell: pwsh
+        run: python scripts/check_existing.py --mode ziponly
+
+      - name: Dry-run Universal Portable Release Publisher v1.1.1
+        if: steps.existing.outputs.skip != 'true' && steps.fallback_existing.outputs.skip != 'true'
+        uses: vhick/portable-release-publisher@v1.1.1
+        with:
+          files: ${{ steps.paf.outputs.ok == 'true' && 'dist/*.zip;dist/*.paf.exe' || 'dist/*.zip' }}
+          tag: ${{ steps.paf.outputs.ok == 'true' && steps.source.outputs.tag || format('{0}-ziponly', steps.source.outputs.tag) }}
+          release-title: Thunderbird Community Portable ${{ steps.source.outputs.tag }}
+          tag-prefix: portable-
+          keep-releases: '3'
+          prune: 'false'
+          dry-run: 'true'
+
+      - name: Publish once through the shared publisher v1.1.1
+        if: steps.existing.outputs.skip != 'true' && steps.fallback_existing.outputs.skip != 'true'
+        uses: vhick/portable-release-publisher@v1.1.1
+        with:
+          files: ${{ steps.paf.outputs.ok == 'true' && 'dist/*.zip;dist/*.paf.exe' || 'dist/*.zip' }}
+          tag: ${{ steps.paf.outputs.ok == 'true' && steps.source.outputs.tag || format('{0}-ziponly', steps.source.outputs.tag) }}
+          release-title: Thunderbird Community Portable ${{ steps.source.outputs.tag }}
+          tag-prefix: portable-
+          keep-releases: '3'
+          prune: 'false'
+          dry-run: 'false'
+
+      - name: Confirm actual GitHub Release assets
+        if: steps.existing.outputs.skip != 'true' && steps.fallback_existing.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          if ('${{ steps.paf.outputs.ok }}' -eq 'true') { python scripts/confirm_release.py --mode full }
+          else { python scripts/confirm_release.py --mode ziponly }
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Releases did not contain expected final packages.' }
+
+      - name: Record validation boundaries
+        if: always()
+        shell: pwsh
+        run: |
+          'This workflow does not execute the PAF installation UI and does not certify PortableApps.com menu discovery or upgrade behavior. Those require a separate manual Windows acceptance test.' >> $env:GITHUB_STEP_SUMMARY

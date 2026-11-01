@@ -1,0 +1,6 @@
+/work/
+/stage/
+/dist/
+*.log
+__pycache__/
+*.pyc
