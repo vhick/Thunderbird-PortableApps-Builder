@@ -57,3 +57,8 @@ For leftover host folders from older r4 versions, do NOT run a generic remover. 
 ### TraceGuard fixture fails before launcher compilation
 
 The workflow runs an isolated Windows test that simulates host folders under the runner's temporary directory. Inspect the `Compile and run isolated TraceGuard safety fixture` step. No real installed Thunderbird files are touched by the fixture. Do not bypass these tests merely to publish an installer.
+
+
+## r6 MSVC errors C2668, C2296, C2297 at TraceGuard fixture
+
+Update the entire independent builder repository to r7 (including `launcher/TraceGuard.h` and `scripts/test_static.py`), commit, push and rerun. r7 renames functions that collided with standard-library filesystem names and converts string operands into path objects before joining. Do not disable the fixture or use an older header.

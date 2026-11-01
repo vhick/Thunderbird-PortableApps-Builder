@@ -44,8 +44,8 @@ def main():
     }
     pathlib.Path('work').mkdir(exist_ok=True)
     pathlib.Path('work/source.json').write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
-    tag_name=f'portable-v{version}-r6'
-    targets={'tag':tag_name,'zip':f'ThunderbirdPortable_{version}_r6_win64.zip','paf':f'ThunderbirdPortable_{version}_r6_win64.paf.exe','paf_independent':f'ThunderbirdPortable_{version}_r6_win64_IndependentNSIS.paf.exe'}
+    tag_name=f'portable-v{version}-r7'
+    targets={'tag':tag_name,'zip':f'ThunderbirdPortable_{version}_r7_win64.zip','paf':f'ThunderbirdPortable_{version}_r7_win64.paf.exe','paf_independent':f'ThunderbirdPortable_{version}_r7_win64_IndependentNSIS.paf.exe'}
     pathlib.Path('work/targets.json').write_text(json.dumps(targets,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(data,indent=2))
     with open(os.environ.get('GITHUB_OUTPUT',os.devnull),'a',encoding='utf-8') as o:

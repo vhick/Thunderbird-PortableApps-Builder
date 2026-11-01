@@ -1,4 +1,4 @@
-// Thunderbird Portable TraceGuard r5 — MIT license, see LICENSE-LAUNCHER.txt.
+// Thunderbird Portable TraceGuard r7 — MIT license, see LICENSE-LAUNCHER.txt.
 // Conservative pre/post-session directory ownership checks. No administrator rights,
 // registry modification, process termination, or removal of existing user data.
 #pragma once
@@ -42,17 +42,17 @@ inline bool is_reparse(const fs::path& p) {
     DWORD a=GetFileAttributesW(p.c_str());
     return a!=INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_REPARSE_POINT)!=0;
 }
-inline bool exists(const fs::path& p) {
+inline bool trace_exists(const fs::path& p) {
     std::error_code ec;
     return !p.empty() && fs::exists(p,ec) && !ec;
 }
-inline bool is_directory(const fs::path& p) {
+inline bool trace_is_directory(const fs::path& p) {
     std::error_code ec;
     return fs::is_directory(p,ec) && !ec;
 }
 inline bool is_empty_directory(const fs::path& p) {
     std::error_code ec;
-    return is_directory(p) && fs::is_empty(p,ec) && !ec;
+    return trace_is_directory(p) && fs::is_empty(p,ec) && !ec;
 }
 inline std::string utf8(const std::wstring& src) {
     int needed=WideCharToMultiByte(CP_UTF8,0,src.c_str(),(int)src.size(),nullptr,0,nullptr,nullptr);
@@ -96,7 +96,7 @@ inline bool verify_tree(const fs::path& source,const fs::path& dest) {
         fs::path rel=it->path().lexically_relative(source);
         fs::path target=dest/rel;
         if(it->is_directory(ec)) {
-            if(!is_directory(target) || is_reparse(target))return false;
+            if(!trace_is_directory(target) || is_reparse(target))return false;
         } else if(it->is_regular_file(ec)) {
             auto size=it->file_size(ec);
             if(ec || size>512ull*1024*1024 || bytes>512ull*1024*1024-size)return false;
@@ -118,7 +118,7 @@ inline bool verify_tree(const fs::path& source,const fs::path& dest) {
 // Check the entire source tree before ANY move/copy. Limit work and reject
 // reparse points, junctions, device entries and unexpectedly large captures.
 inline bool safe_source_tree(const fs::path& source) {
-    if(!is_directory(source) || is_reparse(source))return false;
+    if(!trace_is_directory(source) || is_reparse(source))return false;
     std::error_code ec;
     size_t count=0;
     std::uintmax_t bytes=0;
@@ -135,12 +135,12 @@ inline bool safe_source_tree(const fs::path& source) {
     return !ec;
 }
 inline bool capture_directory(const fs::path& source,const fs::path& dest) {
-    if(exists(dest) || !safe_source_tree(source) || is_reparse(dest.parent_path()))return false;
+    if(trace_exists(dest) || !safe_source_tree(source) || is_reparse(dest.parent_path()))return false;
     if(MoveFileExW(source.c_str(),dest.c_str(),MOVEFILE_WRITE_THROUGH))return true;
     // Cross-volume fallback. Do NOT try if the initial failure was unrelated.
     if(GetLastError()!=ERROR_NOT_SAME_DEVICE)return false;
     const fs::path pending=dest.wstring()+L".pending";
-    if(exists(pending))return false;
+    if(trace_exists(pending))return false;
     std::error_code ec;
     fs::copy(source,pending,fs::copy_options::recursive,ec);
     if(ec || !verify_tree(source,pending))return false;
@@ -150,7 +150,7 @@ inline bool capture_directory(const fs::path& source,const fs::path& dest) {
     // match the captured bytes. A failed removal leaves the copy for recovery.
     if(!verify_tree(source,dest))return false;
     fs::remove_all(source,ec);
-    return !ec && !exists(source);
+    return !ec && !trace_exists(source);
 }
 struct Watch {
     fs::path path;
@@ -174,7 +174,7 @@ class Session {
     void add(fs::path p,fs::path capture,bool dedicated,bool removeIfEmpty=false) {
         if(p.empty())return;
         Watch w{};w.path=std::move(p);w.relativeCapture=std::move(capture);
-        w.dedicated=dedicated;w.removeIfEmpty=removeIfEmpty;w.wasPresent=exists(w.path);w.wasReparse=is_reparse(w.path);
+        w.dedicated=dedicated;w.removeIfEmpty=removeIfEmpty;w.wasPresent=trace_exists(w.path);w.wasReparse=is_reparse(w.path);
         watches_.push_back(std::move(w));
     }
 public:
@@ -185,20 +185,20 @@ public:
             logFile_=base_/L"TraceGuard"/L"logs"/(L"session-"+id_+L".txt");
             {std::ofstream check(logFile_,std::ios::binary|std::ios::app);
              if(!check)throw std::runtime_error("TraceGuard log path is not writable");}
-            note("TRACEGUARD r6 start: only newly CREATED dedicated Thunderbird roots can be relocated.");
+            note("TRACEGUARD r7 start: only newly CREATED dedicated Thunderbird roots can be relocated.");
             note("Existing folders and shared Mozilla/ProgramData/gnupg trees are PROTECTED.");
             if(!roots.roaming.empty()) {
-                add(roots.roaming/L"Thunderbird",L"Roaming"/L"Thunderbird",true);
+                add(roots.roaming/L"Thunderbird",fs::path(L"Roaming")/L"Thunderbird",true);
                 add(roots.roaming/L"Mozilla",{},false,true);
             }
             if(!roots.local.empty()) {
-                add(roots.local/L"Thunderbird",L"Local"/L"Thunderbird",true);
+                add(roots.local/L"Thunderbird",fs::path(L"Local")/L"Thunderbird",true);
                 add(roots.local/L"Mozilla",{},false,true);
                 add(roots.local/L"gnupg",{},false); // GnuPG key material: NEVER modify.
             }
             // Stormhen also monitors LocalLow. Capture only if absent at session start.
             if(!roots.localLow.empty()) {
-                add(roots.localLow/L"Thunderbird",L"LocalLow"/L"Thunderbird",true);
+                add(roots.localLow/L"Thunderbird",fs::path(L"LocalLow")/L"Thunderbird",true);
             }
             if(!roots.programData.empty()) {
                 add(roots.programData/L"Mozilla",{},false);
@@ -223,9 +223,9 @@ public:
              " | otherThunderbirdProcessRunning="+(otherThunderbirdProcessRunning?"yes":"no"));
         for(const auto& w:watches_) {
             if(w.wasPresent) { note("KEEP pre-existing | "+path_text(w.path));continue; }
-            if(!exists(w.path)) { note("NO TRACE | "+path_text(w.path));continue; }
+            if(!trace_exists(w.path)) { note("NO TRACE | "+path_text(w.path));continue; }
             // Never traverse a junction/symlink or delete inside an unknown reparse tree.
-            if(w.wasReparse || is_reparse(w.path) || is_reparse(w.path.parent_path()) || !is_directory(w.path)) {
+            if(w.wasReparse || is_reparse(w.path) || is_reparse(w.path.parent_path()) || !trace_is_directory(w.path)) {
                 note("KEEP suspicious type/reparse point | "+path_text(w.path));continue;
             }
             if(!mayMove) {note("KEEP uncertain shutdown/process ownership | "+path_text(w.path));continue;}
@@ -243,7 +243,7 @@ public:
             // Thunderbird directory into an entirely new, session-named destination.
             fs::path destination=base_/L"TraceGuard"/L"captured"/w.relativeCapture/(L"session-"+id_);
             try {
-                if(exists(destination) || is_reparse(destination.parent_path())) {
+                if(trace_exists(destination) || is_reparse(destination.parent_path())) {
                     note("KEEP destination exists or is a junction | "+path_text(w.path));continue;
                 }
                 fs::create_directories(destination.parent_path());
@@ -258,7 +258,7 @@ public:
                 note("KEEP exception while preparing safe capture path | "+path_text(w.path));
             }
         }
-        note("TRACEGUARD r6 complete. Pre-existing host folders are untouched.");
+        note("TRACEGUARD r7 complete. Pre-existing host folders are untouched.");
     }
 };
 } // namespace traceguard

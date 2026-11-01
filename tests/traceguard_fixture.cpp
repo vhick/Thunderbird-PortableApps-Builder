@@ -1,4 +1,4 @@
-// Deterministic r6 TraceGuard tests, confined to a temporary test directory.
+// Deterministic r7 TraceGuard tests, confined to a temporary test directory.
 // No real APPDATA, LOCALAPPDATA, PROGRAMDATA or live Thunderbird data is accessed.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

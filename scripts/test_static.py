@@ -35,7 +35,7 @@ print('PASS: static builder inventory, launcher behavior references, upstream Th
 from pathlib import Path
 import ast
 source=(root/'scripts/resolve.py').read_text('utf-8')
-assert "ThunderbirdPortable_" in source and "-r6" in source
+assert "ThunderbirdPortable_" in source and "-r7" in source
 assert "ThunderbirdPortable" in (root/'scripts/package.py').read_text('utf-8')
 assert "Start=ThunderbirdPortable.exe" in (root/'scripts/package.py').read_text('utf-8')
 assert "AppID=ThunderbirdPortable-vhick" in (root/'scripts/package.py').read_text('utf-8')
@@ -48,13 +48,27 @@ assert 'ThunderbirdPortable.exe' in nsis
 assert 'mail/branding/thunderbird/messengerWindow.ico' in (root/'scripts/prepare_icons.py').read_text('utf-8')
 assert 'appicon_256.png' in (root/'scripts/package.py').read_text('utf-8')
 assert 'assets/appicon.ico' not in (root/'scripts/package.py').read_text('utf-8')
-print('PASS: r6 canonical ThunderbirdPortable stage/EXE/AppID/installer names and official artwork')
+print('PASS: r7 canonical ThunderbirdPortable stage/EXE/AppID/installer names and official artwork')
 
-# r6: Stormhen-derived prevention and safe LocalLow coexistence.
+# r7: Stormhen-derived prevention and safe LocalLow coexistence.
 assert 'roots.localLow/L"Thunderbird"' in (root/'launcher/TraceGuard.h').read_text('utf-8')
 assert 'MOZ_MAINTENANCE_SERVICE' in launcher and 'MOZ_UPDATER' in launcher
 assert 'MOZ_PLUGIN_PATH' in launcher and 'MOZ_CRASHREPORTER_DISABLE' in launcher
 assert 'mail.winsearch.enable' in (root/'scripts/package.py').read_text('utf-8')
 assert 'mail.shell.checkDefaultClient' in (root/'scripts/package.py').read_text('utf-8')
 assert 'Data/plugins' in (root/'scripts/package.py').read_text('utf-8')
-print('PASS: r6 Stormhen prevention alongside TraceGuard, LocalLow coverage and policy safeguards')
+print('PASS: r7 Stormhen prevention alongside TraceGuard, LocalLow coverage and policy safeguards')
+
+# r7: compile-error regression checks from failed 2026-11-02 Windows action.
+import re
+tg=(root/'launcher/TraceGuard.h').read_text('utf-8')
+assert 'inline bool trace_exists(' in tg and 'inline bool trace_is_directory(' in tg
+# Unqualified fs::path helpers named exists()/is_directory() collide with std::filesystem via ADL.
+assert not re.search(r'(?<!:)(?<!->)\b(?:exists|is_directory)\(', tg), 'C2668: ambiguous unqualified std::filesystem-like function'
+# Two wide string literals cannot be directly joined using the path / operator.
+assert not re.search(r'\badd\([^,\n]+,\s*L"[^"]+"\s*/', tg), 'C2296: invalid literal/literal path expression'
+for relative in ['Roaming', 'Local', 'LocalLow']:
+    assert f'fs::path(L"{relative}")/L"Thunderbird"' in tg
+assert 'Compile and run isolated TraceGuard safety fixture' in wf
+assert wf.index('Compile and run isolated TraceGuard safety fixture') < wf.index('Download official Thunderbird installer with Mozilla SHA-256 verification'), 'Compile TraceGuard before costly application download'
+print('PASS: r7 TraceGuard source compile regression checks (ADL/path-operator failures)')

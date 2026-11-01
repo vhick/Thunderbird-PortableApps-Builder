@@ -75,6 +75,11 @@ jobs:
         shell: pwsh
         run: python scripts/check_existing.py --mode full
 
+      - name: Compile and run isolated TraceGuard safety fixture (no host-profile writes)
+        if: steps.existing.outputs.skip != 'true'
+        shell: pwsh
+        run: ./scripts/test_traceguard.ps1
+
       - name: Download official Thunderbird installer with Mozilla SHA-256 verification
         if: steps.existing.outputs.skip != 'true'
         shell: pwsh
@@ -93,11 +98,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to install image processing library for official Thunderbird icon.' }
           python scripts/prepare_icons.py
           if ($LASTEXITCODE -ne 0) { throw 'Verified Thunderbird icon acquisition/conversion failed. Refusing generic branding.' }
-
-      - name: Compile and run isolated TraceGuard safety fixture (no host-profile writes)
-        if: steps.existing.outputs.skip != 'true'
-        shell: pwsh
-        run: ./scripts/test_traceguard.ps1
 
       - name: Compile the genuine C++ launcher on Windows
         if: steps.existing.outputs.skip != 'true'

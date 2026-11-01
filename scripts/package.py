@@ -55,7 +55,7 @@ info=ROOT/'App/AppInfo';info.mkdir(parents=True)
 for filename in ['appicon.ico','appicon_16.png','appicon_32.png','appicon_75.png','appicon_128.png','appicon_256.png']:
     shutil.copy2(pathlib.Path('work/icons')/filename,info/filename)
 version_bits=(meta['version'].split('.')+['0']*4)[:4]
-version_bits[-1]='6'  # builder revision 6; four-part PortableApps package version
+version_bits[-1]='7'  # builder revision 7; four-part PortableApps package version
 package_version='.'.join(version_bits)
 # Required official metadata: the homepage points to this independent builder, not an endorsed Thunderbird product.
 import os,re
@@ -85,7 +85,7 @@ CommercialUse=true
 
 [Version]
 PackageVersion={package_version}
-DisplayVersion={meta['version']} Independent r6
+DisplayVersion={meta['version']} Independent r7
 
 [Dependencies]
 Requires64bitOS=true
